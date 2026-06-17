@@ -160,6 +160,7 @@ export async function executeRun(runId, { workflowType, idea, context, constrain
     // Notify SSE
     if (res) {
       events.emitToResponse(res, 'run_completed', { runId, memo: finalMemo, provider: state.provider, actualModel: state.actualModel });
+    }
   } catch (err) {
     console.error('[RunEngine] Run fatal error:', err.message);
     state.setFailed(err.message);
