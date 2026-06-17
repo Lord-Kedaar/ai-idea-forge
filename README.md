@@ -6,7 +6,7 @@ A modular workflow for generating **Decision Memos** through a multi-agent AI pi
 
 - **Backend**: Express.js + Node.js 22 (ESM)
 - **Frontend**: React 18 + Vite
-- **AI Provider**: Ollama-compatible API (oMLX) or fake provider for offline use
+- **LLM API Provider**: for offline use 2013 oMLX with local models; for on-line use 2013 FreeLLMAPI router to available free tier API providers.
 
 ## Requirements
 
