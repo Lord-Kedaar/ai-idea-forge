@@ -1,5 +1,30 @@
 # Changelog — AI Idea Forge
 
+## [Unreleased]
+
+### Fixed
+- **Pipeline status completion** — `orchestration/runEngine.js`: missing closing `}` on `if (res)` block caused `setCompleted()` + `saveRun()` to be skipped when SSE response was absent. Status now correctly transitions to `completed`.
+- **Decision Memo markdown parsing** — `artifacts/decisionMemoBuilder.js`: agent outputs were not parsed into Markdown sections. Builder now correctly extracts `# Problem`, `## Propozycja`, etc.
+
+### Changed
+- **Initial git commit** — project committed to GitHub (Lord-Kedaar/ai-idea-forge)
+
+### Added
+- **i18n — English + German UI** — full internationalization with three languages:
+  - `frontend/src/i18n/I18nProvider.jsx` — React context provider with `useI18n()` hook
+  - `frontend/src/i18n/en.{js|json}`, `de.{js|json}`, `pl.{js|json}` — 100+ translated strings each
+  - Language persisted in localStorage, browser language auto-detected on first visit (fallback: PL)
+  - Language switcher in header: EN / DE / PL
+  - All UI strings externalized: buttons, labels, tooltips, error messages, agent names, memo sections
+- **Rate limiting + safety guards** — protects demo against token burn-out:
+  - `backend/src/middleware/rateLimit.js` — in-memory store with per-IP limits
+  - Per IP: max 10 requests/hour, max 100 requests/day
+  - Per session: 1 active pipeline at a time (30s cooldown after completion)
+  - `GET /api/rate-limit` — returns `{hourlyRemaining, dailyRemaining, hourlyLimit, dailyLimit}`
+  - Frontend header shows remaining requests; 429 responses show blocked UI
+  - Hard token cap: configurable `MAX_TOKENS_PER_RUN` (default 2000 output tokens per agent)
+  - Soft cap: max 6 agents x 3 iterations per run
+
 ## [0.3.0] — 2026-06-15
 
 ### Added
@@ -15,10 +40,10 @@
 - **UI: Product Explainer** — prawa kolumna PRZED startem pokazuje:
   - Panel "Jak działa analiza?" z 6 agentami (Generator, Sceptyk, Pragmatyk, Red Team, Redaktor, Decydent)
   - Placeholder "Decision Memo" z szablonem 14 sekcji (# Problem, Propozycja, Kontekst, Fakty, Założenia, Argumenty za, Argumenty przeciw, Ukryte ryzyka, Pytania otwarte, Alternatywy, Minimalny eksperyment, Rekomendacja, Status, Następny krok)
-- **UI: Backend Diagnostics** — panel "Backend niedostępny" z diagnostyką + retry button
-- **UI: "Moje runy" przesunięte** do secondary section (pod głównym flow)
-- **UI: Provider metadata w run** — kolumna "Provider / Model" w tabeli i w StatusCard
-- **UI: Header diagnostics** — badge "Backend: down" z tooltip + Retry button
+  - **UI: Backend Diagnostics** — panel "Backend niedostępny" z diagnostyką + retry button
+  - **UI: "Moje runy" przesunięte** do secondary section (pod głównym flow)
+  - **UI: Provider metadata w run** — kolumna "Provider / Model" w tabeli i w StatusCard
+  - **UI: Header diagnostics** — badge "Backend: down" z tooltip + Retry button
 - **API: `/api/providers` rozszerzony** — zwraca listę wszystkich providerów z metadanymi (baseUrl, defaultModel, isActive)
 
 ### Changed

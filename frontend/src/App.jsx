@@ -40,8 +40,10 @@ const MEMO_SECTIONS = [
 
 export default function App() {
   const [health, setHealth] = useState({ status: 'unknown' });
+  const { t, lang, setLang } = useI18n();
   const [backendDown, setBackendDown] = useState(false);
   const [backendError, setBackendError] = useState(null);
+  const [uiLang, setUiLang] = useState('pl');
   const [providers, setProviders] = useState(null);
   const [agents, setAgents] = useState([]);
   const [workflows, setWorkflows] = useState([]);
@@ -257,6 +259,8 @@ export default function App() {
         providers={providers?.providers || []}
         backendDown={backendDown}
         backendError={backendError}
+        lang={uiLang}
+        setUiLang={setUiLang}
         onRetry={async () => {
           setBackendDown(false); setBackendError(null);
           const h = await getHealth(onBackendDown);
@@ -403,7 +407,7 @@ function markStage(stages, agentId, type) {
 
 // ==================== HEADER ====================
 
-function Header({ health, provider, providerMeta, providers, backendDown, backendError, onRetry }) {
+function Header({ health, provider, providerMeta, providers, backendDown, backendError, onRetry, lang, setLang }) {
   const backendOk = health?.status === 'ok';
   return (
     <header className="app-header">
@@ -414,19 +418,24 @@ function Header({ health, provider, providerMeta, providers, backendDown, backen
         </div>
         <div className="app-badges">
           <span className={`badge ${backendOk ? 'badge-ok' : 'badge-error'}`} title={backendError ? String(backendError) : ''}>
-            Backend: {backendOk ? 'OK' : (backendError ? 'down' : '…')}
+            Backend: {backendOk ? t('backendOk') : (backendError ? t('backendDown') : t('backendUnknown'))}
           </span>
           {provider && providerMeta && (
             <span className="badge">
-              Provider: {providerMeta.name}
+              {t('infoProvider')} {providerMeta.name}
               {providerMeta.baseUrl ? ` · ${providerMeta.baseUrl.replace(/^https?:\/\//, '')}` : ''}
             </span>
           )}
-          <span className="badge">Model: {providerMeta?.defaultModel || 'default'}</span>
-          <span className="badge">MVP</span>
+          <span className="badge">{t(infoModel)} {providerMeta?.defaultModel || 'default'}</span>
+          <span className="badge">{t('mvp')}</span>
+          <span style={{ display: 'flex', gap: '0.2rem', alignItems: 'center', marginLeft: '0.25rem' }}>
+            {['en', 'de', 'pl'].map((l) => (
+              <button key={l} className={`btn btn-sm ${lang===l?'btn-primary':'btn-ghost'}`} onClick={()=>setLang(l)} style={{ padding: '0.125rem 0.35rem', fontSize: '0.7rem' }}>{l.toUpperCase()}</button>
+            ))}
+          </span>
           {!backendOk && (
             <button className="btn btn-sm btn-ghost" onClick={onRetry} style={{ padding: '0.125rem 0.5rem' }}>
-              ↻ Retry
+              {t(retry)}
             </button>
           )}
         </div>
@@ -557,9 +566,9 @@ function NewRunCard(props) {
           <dt>Provider:</dt><dd>{activeProviderMeta?.name || activeProvider || '—'}</dd>
           <dt>Endpoint:</dt><dd className="text-mono">{activeProviderMeta?.baseUrl || '—'}</dd>
           <dt>Model:</dt><dd>{activeProviderMeta?.defaultModel || 'default'}</dd>
-          <dt>Liczba agentów:</dt><dd>{activeAgentCount}</dd>
-          <dt>Tryb:</dt><dd>sequential pipeline</dd>
-          <dt>Streaming:</dt><dd>status events (SSE + polling fallback)</dd>
+          <dt>{t('infoAgents')}</dt><dd>{activeAgentCount}</dd>
+          <dt>{t('infoMode')}</dt><dd>t('pipelineMode')</dd>
+          <dt>{t('infoStreaming')}</dt><dd>t('streamingMode')</dd>
         </dl>
       </div>
 
@@ -569,7 +578,7 @@ function NewRunCard(props) {
         onClick={onStart}
         type="button"
       >
-        {submitting ? 'Uruchamiam…' : (backendDown ? 'Backend niedostępny' : 'Rozpocznij analizę')}
+        {submitting ? t('startingButton') : (backendDown ? t('backendUnavailable') : t('startButton'))}
       </button>
       {submitError && (
         <div className="form-help form-help-error" style={{ marginTop: '0.5rem' }}>{submitError}</div>
@@ -586,22 +595,19 @@ function NewRunCard(props) {
 function BackendDiagnostics({ error, onRetry }) {
   return (
     <div className="card error-card">
-      <h2 className="card-title">Backend niedostępny</h2>
+      <h2 className="card-title">{t('backendUnavailableTitle')}</h2>
       <div className="error-message">
-        Nie udało się połączyć z API. Aplikacja działa w trybie tylko-dev-data.
+        {t('backendUnavailableMsg')}
       </div>
       <details>
-        <summary className="text-small text-muted">Szczegóły techniczne</summary>
+        <summary className="text-small text-muted">{t('technicalDetails')}</summary>
         <div className="error-details">
-          {error ? String(error.message || error) : 'Brak szczegółów.'}
-          {'\n\n'}Sprawdź:
-          {'\n'}• Backend działa na http://localhost:3210
-          {'\n'}• Tunel SSH aktywny (ssh -L 3210:localhost:3210 …)
-          {'\n'}• Brak CORS / firewalla blokującego request
+          {error ? String(error.message || error) : t('detailsNoData')}
+          {t('detailsCheckList')}
         </div>
       </details>
       <button className="btn btn-secondary mt-1" onClick={onRetry} type="button">
-        ↻ Spróbuj ponownie
+        {t('tryAgain')}
       </button>
     </div>
   );
@@ -614,7 +620,7 @@ function ProductExplainer() {
     <>
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title" style={{ margin: 0 }}>Jak działa analiza?</h2>
+          <h2 className="card-title" style={{ margin: 0 }}>{t('howItWorks')}</h2>
           <span className="card-subtle">6 agentów · sekwencyjnie</span>
         </div>
         <p className="text-small text-muted mb-2">
@@ -672,15 +678,15 @@ function StatusCard({ run, providers }) {
         <dd><span className={`status-pill status-pill-${status}`}>{status}</span></dd>
         <dt>Run ID:</dt>
         <dd style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem' }}>{run.runId}</dd>
-        <dt>Aktualny agent:</dt>
+        <dt>{t('currentAgent')}</dt>
         <dd>{currentAgent ? (AGENTS.find((a) => a.id === currentAgent)?.name || currentAgent) : '—'}</dd>
-        <dt>Czas:</dt><dd>{elapsed}</dd>
+        <dt>{t('elapsed')}</dt><dd>{elapsed}</dd>
         <dt>Provider:</dt><dd>{run.provider || activeProvider?.id || '—'}</dd>
         <dt>Model:</dt><dd>{displayModel}</dd>
-        <dt>Tryb:</dt><dd>{run.workflowType || 'decision_memo'}</dd>
+        <dt>{t('infoMode')}</dt><dd>{run.workflowType || 'decision_memo'}</dd>
       </dl>
       {(status === 'running' || status === 'pending') && (
-        <p className="form-help" style={{ marginTop: '0.75rem' }}>Analiza trwa. Nie zamykaj okna.</p>
+        <p className="form-help" style={{ marginTop: '0.75rem' }}>t('analysisInProgress')</p>
       )}
       {status === 'failed' && run.error && (
         <div className="error-message" style={{ marginTop: '0.5rem' }}>{run.error}</div>

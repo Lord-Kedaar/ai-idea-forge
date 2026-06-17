@@ -8,6 +8,7 @@ import agentsRouter from './routes/agents.js';
 import workflowsRouter from './routes/workflows.js';
 import { createForgeRun, getForgeRun, getForgeRunEvents, listForgeRuns, deleteForgeRun } from './routes/forgeRuns.js';
 import { getDecisionMemo } from './routes/artifacts.js';
+import { rateLimitMiddleware, sessionLockMiddleware, getRateLimitInfo } from './middleware/rateLimit.js';
 
 const env = loadEnv();
 
@@ -69,7 +70,8 @@ app.get('/api/agents', agentsRouter);
 app.get('/api/workflows', workflowsRouter);
 
 // Forge runs
-app.post('/api/forge/runs', createForgeRun);
+app.post('/api/forge/runs', rateLimitMiddleware, sessionLockMiddleware, createForgeRun);
+app.get('/api/rate-limit', (req, res) => {  const info = getRateLimitInfo(req);  res.json({ ...info, hourlyLimit: 10, dailyLimit: 100 });});
 app.get('/api/forge/runs', listForgeRuns);
 app.get('/api/forge/runs/:runId', getForgeRun);
 app.delete('/api/forge/runs/:runId', deleteForgeRun);
