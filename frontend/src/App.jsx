@@ -20,6 +20,7 @@ import {
   subscribeRunWithFallback,
 } from './api.js';
 import { renderMarkdown } from './markdown.js';
+import { useI18n } from './i18n/I18nProvider';
 
 const AGENTS = [
   { id: 'generator', name: 'Generator', description: 'Rozwija pomysł i proponuje warianty.' },
