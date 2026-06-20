@@ -30,6 +30,13 @@ export const env = {
   // oMLX (Ollama-compatible local)
   omlxBaseUrl: process.env.OMLX_BASE_URL || config.omlx.baseUrl,
   omlxApiKey: process.env.OMLX_API_KEY || config.omlx.apiKey,
+  omlxModel: process.env.OMLX_MODEL || config.omlx.model,
+
+  // Groq
+  groqApiKey: process.env.GROQ_API_KEY || config.groq.apiKey,
+
+  // Mistral La Plateforme
+  mistralApiKey: process.env.MISTRAL_API_KEY || config.mistral.apiKey,
 
   // FreeLLMApi (OpenAI-compatible remote)
   freellmapiBaseUrl: process.env.FREELLMAPI_BASE_URL || config.freellmapi.baseUrl,

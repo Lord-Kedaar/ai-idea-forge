@@ -11,6 +11,8 @@
 import { FakeProvider } from './fakeProvider.js';
 import { OmlxProvider } from './omlxProvider.js';
 import { FreeLLMApiProvider } from './freeLLMApiProvider.js';
+import { GroqProvider } from './groqProvider.js';
+import { MistralProvider } from './mistralProvider.js';
 
 /**
  * Lista zarejestrowanych providerów.
@@ -19,6 +21,8 @@ const PROVIDERS = {
   fake: FakeProvider,
   omlx: OmlxProvider,
   freellmapi: FreeLLMApiProvider,
+  groq: GroqProvider,
+  mistral: MistralProvider,
 };
 
 /**

@@ -11,7 +11,16 @@ export const config = {
     name: 'freellmapi', // aktualny provider roboczy
   },
   omlx: {
-    baseUrl: 'http://localhost:11434',
+    baseUrl: 'http://localhost:8585',
+    apiKey: '',
+    model: 'gemma-4-26B-A4B-it-QAT-MLX-4bit',
+  },
+  groq: {
+    baseUrl: 'https://api.groq.com/openai/v1',
+    apiKey: '',
+  },
+  mistral: {
+    baseUrl: 'https://api.mistral.ai/v1',
     apiKey: '',
   },
   freellmapi: {
