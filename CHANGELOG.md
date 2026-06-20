@@ -2,152 +2,48 @@
 
 ## [Unreleased]
 
-
-
-
 ### Fixed
-- **Actionbar poza formularzem** — `frontend/src/components/IdeaActionBar.jsx` (nowy) + `frontend/src/App.jsx` + `frontend/src/components/IdeaInputForm.jsx`:
-  - Poprzednio `<div className="actionbar">` był renderowany wewnątrz `<div className="card-body">` `IdeaInputForm` — ograniczony do szerokości lewej kolumny gridu, wyglądał jak kolejny element formularza.
-  - Teraz: wydzielony komponent `IdeaActionBar` z `shrink-0 border-t border-border bg-background` (anchor bottom, full-width), wewnętrzny wrapper `mx-auto max-w-[1400px] flex items-center justify-between gap-4 px-4 py-3 md:px-6` (centrowanie, max-width 1400 spójny z resztą layoutu).
-  - `IdeaView` zmieniony z `<div className="grid gap-6 lg:grid-cols-[...]">` na `<div className="flex h-full min-h-0 flex-col">`:
-    - Wewnętrzny `<div className="grid flex-1 min-h-0 grid-cols-1 gap-6 overflow-y-auto px-4 py-6 md:px-6 md:py-8 lg:grid-cols-[...]">` — content grid scrolluje (`flex-1 + overflow-y-auto`).
-    - **Sibling**: `<IdeaActionBar selectedWorkflow={activeWorkflow} canStart={canStart} canClear={...} isStarting={submitting} submitError={submitError} onClear={handleClearForm} onStart={handleStart} />` — pasek renderowany poza gridem, na dole `IdeaView`.
-  - `<main>` zmieniony z `flex-1 min-w-0 min-h-0 overflow-y-auto` (z wrapperem `mx-auto max-w-[1400px]`) na `flex-1 min-w-0 min-h-0 flex flex-col` (bez overflow) — każdy widok (`IdeaView`, `AnalysisView`, `DecisionMemoView`, `HistoryView`, settings, help) sam zarządza przewijaniem wewnętrznym przez wrapper `flex-1 min-h-0 overflow-y-auto` + `mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8`.
-- **Duplikat `Idea / Problem / Decyzja` usunięty** — `frontend/src/components/IdeaInputForm.jsx`:
-  - Usunięty `<p className="text-sm text-muted-foreground">{t('ideaLabel')}</p>` z `card-header` (subtitle).
-  - Zachowany `<label htmlFor="idea">{t('ideaLabel')}</label>` w `card-body` (accessibility label dla textarea).
-  - Usunięte importy `Info, ArrowRight, RotateCcw` z `IdeaInputForm.jsx` (przeniesione do `IdeaActionBar`).
-  - Usunięte props `onClear, activeWorkflow` + zmienne `selectedAgentsCount, canClear, handleClear`.
+- **Bug A — priorOutputs field mismatch (krytyczny)** — `backend/src/orchestration/runState.js`:
+  - `getPriorOutputs()` zwracało `{ agent, content }` ale szablon promptu czytał `o.output`
+  - skutek: agenci 2+ w pipeline otrzymywali `undefined` zamiast realnych outputów poprzednich agentów
+  - naprawione: `content` → `output` w mapowaniu
+- **Testy integracyjne priorOutputs** — `backend/tests/unit/priorOutputs.test.js` (nowy):
+  - test regresji `getPriorOutputs` field name
+  - test integracyjny pełnego promptu z `priorOutputs`
+  - test weryfikujący brak duplikatów Reference topic w pierwszym agencie
+  - 8 testów, wszystkie przechodzą
 
-### Removed
-- **Klasy `.actionbar*` w `frontend/src/index.css`** — martwy kod po migracji do Tailwind utility w `IdeaActionBar`. Usunięte: `.actionbar`, `.actionbar-info`, `.actionbar-info > span`, `.actionbar-buttons`, `.actionbar-buttons .btn-primary`, `@media (max-width: 640px) { .actionbar* }`. Selektor `.actionbar` usunięty z listy border hierarchy (`:is(header).border-b, :is(aside).border-r` zostają z `--border-strong`).
+### Added
+- **Decision Memo export do PDF** — `frontend/src/components/DecisionMemoPanel.jsx` + `frontend/src/i18n/{pl,en,de}.json`:
+  - Usunięty przycisk **Podgląd artefaktu**.
+  - Przycisk **Drukuj / zapisz jako PDF** zmieniony na **Zapisz jako PDF** (PL/EN/DE).
+  - Eksport przez ukryty `iframe` z `window.print()` — bez popup preview, bez zewnętrznych zależności.
+- **Actionbar poza formularzem** — `frontend/src/components/IdeaActionBar.jsx` (nowy) + `frontend/src/App.jsx`:
+  - Wydzielony komponent z `shrink-0 border-t border-border bg-background` — pełna szerokość, anchor bottom.
+  - Duplikat labela `Idea / Problem / Decyzja` usunięty z `card-header` formularza.
 
-### Verified
-- `vite build` → `✓ 1599 modules transformed`, `dist 242.82 KB JS + 47.81 KB CSS`, 0 warnings, 0 errors (1598 → +1 = IdeaActionBar.jsx).
-- `jest` → `Tests: 25 passed, 25 total` (5 suites).
-- `/health` → 200 OK · `/api/workflows` → 6 workflows.
-- `dist/assets/*.css` grep `.actionbar*` → **0** (martwy kod wycięty).
-- `dist/assets/*.css` grep `--border-strong` → 2 (dark 240 3.7% 23%, light 240 5.9% 78%).
-- `dist/assets/*.js` grep `IdeaActionBar` → 1.
-- `dist/assets/*.js` grep `actionbar.label|actionbar.selected|actionbar.clear` → 3.
-- `dist/assets/*.js` grep `Info|ArrowRight|RotateCcw` → 3 (ikony lucide w `IdeaActionBar`).
-- `dist/assets/*.js` grep `nav.templates|nav.agents|Szablony|Agenci` → 0.
-- `dist/assets/*.js` grep `RunsHistoryPanel` (powinien być tylko w `HistoryView`) → ≥ 1 (renderowany w `HistoryView`, nie w `IdeaView`).
-- Dev server (5173) serwuje nowe pliki po restarcie z `--force`.
-
-### Risks
-- `<main>` bez overflow wymusza wrapper `flex-1 overflow-y-auto` w każdym widoku — weryfikacja: `AnalysisView`, `DecisionMemoView`, `HistoryView`, `settings`, `help` wszystkie mają wrapper, `IdeaView` ma go w grid.
-- Mobile (≤640px): Tailwind utility nie definiuje stackowania akcji — kompaktowe `btn-sm` + `h-10 px-5` wystarczają na małych ekranach, padding `px-4`. Poprzedni CSS miał explicit `@media flex-direction: column` — uprościłem świadomie.
-- `submitError` w `IdeaInputForm` ustawiony na `null` — renderuje się teraz w `IdeaActionBar` (pod paskiem), zgodnie z układem OD.
 ### Changed
-- **Dolny actionbar w widoku `Pomysł`** — `frontend/src/components/IdeaInputForm.jsx` + `frontend/src/App.jsx` + `frontend/src/index.css`:
-  - Stary `<button className="btn btn-primary btn-lg w-full">` na dole formularza zastąpiony dedykowanym `.actionbar` (pełna szerokość karty, `min-height: 64px`, `padding: 12px 24px`, `border-top: 1px solid hsl(var(--border-strong))`, `background: hsl(var(--card))`).
-  - Lewa sekcja `.actionbar-info`: ikona `Info` (lucide) + `Wybrano: {{mode}} · {{count}} etapów` z `t('actionbar.selected', { mode, count })`.
-  - Prawa sekcja `.actionbar-buttons`: `Wyczyść formularz` (`btn-secondary btn-sm` + `RotateCcw`, disabled gdy formularz pusty) + `Uruchom analizę →` (`btn-primary` + `ArrowRight`, `min-height: 40px`, `padding: 0 18px`, `font-weight: 600`, nie rozciąga się na pełną szerokość).
-  - Responsive: na ≤640px actionbar stackuje się pionowo (`flex-direction: column`), CTA `flex: 2`, „Wyczyść" `flex: 1`.
-  - Nowy handler `handleClearForm()` w `App.jsx` — zeruje `idea`, `context`, `constraints`, `extraInstructions`. Nie zmienia `workflowType` ani `lengthPref`/`criticismLevel`/`priority` (świadoma decyzja — „Wyczyść formularz" ≠ „Nowa analiza").
 - **Hierarchia borderów** — `frontend/src/index.css`:
-  - Nowe tokeny: dark `--border-strong: 240 3.7% 23%`, light `--border-strong: 240 5.9% 78%`.
-  - Główne granice layoutu (`header.border-b`, `aside.border-r`, `.actionbar`) używają `--border-strong` — lepsza separacja paneli.
-  - Karty i wewnętrzne separatory nadal `--border` — średnie/subtelne.
-  - Selektory `:is(header).border-b` + `:is(aside).border-r` (poprawka względem `header.border-b`, które esbuild traktował jako at-rule).
-
-### Added
-- **Klucze i18n × 3 × 3** — `frontend/src/i18n/{pl,en,de}.json`:
-  - `actionbar.label` (`Pasek akcji` / `Action bar` / `Aktionsleiste`)
-  - `actionbar.selected` (`Wybrano: {{mode}} · {{count}} etapów` / EN / DE)
-  - `actionbar.clear` (`Wyczyść formularz` / `Clear form` / `Formular leeren`)
-
-### Verified
-- `vite build` → `✓ 1598 modules transformed`, `dist 241.41 KB JS + 48.94 KB CSS`, 0 warnings, 0 errors.
-- `jest` → `Tests: 25 passed, 25 total`.
-- `/health` → 200 OK.
-- `dist/assets/*.js` grep `nav.templates|nav.agents|Szablony|Agenci` → 0.
-- `dist/assets/*.js` grep `actionbar.*` → 3 (label/selected/clear).
-- `dist/assets/*.js` grep `Info|ArrowRight|RotateCcw` → 3 (ikony lucide).
-- `dist/assets/*.css` grep `.actionbar` + `.actionbar-info` + `.actionbar-buttons` → 3 klasy.
-- `dist/assets/*.css` grep `--border-strong` → 2 (dark 23%, light 78%).
-- Dev server (5173) serwuje nowe pliki po restarcie z `--force`.
-### Added
-- **Light mode z działającym theme toggle** — `frontend/src/index.css` + nowy `frontend/src/useTheme.js` + `frontend/src/components/ThemeToggle.jsx`:
-  - Tokeny CSS dla `:root[data-theme='light']` (identyczne z OpenDesign — białe tło, ciemny tekst, secondary 95.9%, border 90%).
-  - Hook `useTheme()` ustawia `data-theme` na `<html>`, persystuje w `localStorage('forge-theme')`, fallback do `prefers-color-scheme` tylko przy pierwszej wizycie (po zapisie OS przestaje nadpisywać wybór użytkownika).
-  - `ThemeToggle` w HeaderBar — ikona `Moon`/`Sun` z lucide, `aria-pressed`, `aria-label='Przełącz motyw'`.
-  - Body transition 200ms dla `background-color` i `color` przy zmianie motywu.
+  - Nowe tokeny `--border-strong` (dark: 240 3.7% 23%, light: 240 5.9% 78%).
+  - Główne granice layoutu (`header.border-b`, `aside.border-r`) używają `--border-strong`.
 - **Sidebar brand z logo SVG** — `frontend/src/components/SidebarNav.jsx`:
-  - Dwa `<img>` (`icon_dark_theme.svg`, `icon_light_theme.svg`) z atrybutami `data-theme-icon='dark'/'light'`. CSS przełącza widoczność przez `:root[data-theme='light']` — użytkownik zawsze widzi kontrastujące logo.
-  - Tytuł `Idea Forge` + podtytuł `AI walidacja pomysłów` (klucz `brandSub`).
-  - Ikony `icon_dark_theme.svg` / `icon_light_theme.svg` / `favicon.png` skopiowane z `/home/radek/ai-idea-forge/icons/` do `frontend/public/icons/` — wcześniej Vite zwracał SPA fallback (`text/html` mimo HTTP 200) zamiast assetu.
-- **Sidebar footer (OD parity)** — `frontend/src/components/SidebarNav.jsx`:
-  - Pozycje `Ustawienia` + `Pomoc` w sekcji footer (nie w głównej nawigacji).
-  - Separator `separator`, linki `Prywatność` + `Opis projektu` + copyright `© 2026 Radosław Pleskot`.
-- **Breadcrumb w topbarze** — `frontend/src/components/HeaderBar.jsx`:
-  - Wzorzec `Warsztat / <aktywna zakładka>` — `bc.workspace` + `bc.idea/analysis/memo/history/settings/help`.
-  - Śledzi stan `nav` przekazany przez nowy prop `active={nav}`.
-- **User chip w topbarze** — `frontend/src/components/HeaderBar.jsx`:
-  - Avatar `RP` + imię `Radosław` ukryte < sm, separator pionowy przed chipem.
-- **`prefers-reduced-motion`** — `frontend/src/index.css`:
-  - Globalny `@media (prefers-reduced-motion: reduce)` obniża `animation-duration` / `transition-duration` / `scroll-behavior` do `0.01ms`.
-- **Klucze i18n × 14 × 3 języki** — `frontend/src/i18n/{pl,en,de}.json`:
-  - `brandSub`, `nav.workspace`, `nav.library`, `bc.workspace`, `bc.idea`, `bc.analysis`, `bc.memo`, `bc.history`, `bc.settings`, `bc.help`, `footer.privacy`, `footer.about`, `footer.copyright`, `themeToggleLabel`.
-
-### Changed
-- **Historia usunięta z widoku `Pomysł`** — `frontend/src/App.jsx`:
-  - `IdeaView` renderuje wyłącznie `IdeaInputForm` + `AnalysisExplainer` + (opcjonalnie) `BackendStatus`. `RunsHistoryPanel` pozostaje wyłącznie w `HistoryView`. Warunek `runs.length > 0 && !isMobile` wycofany, zmienna `isMobile` usunięta.
-- **Sidebar podzielony na grupy `Warsztat` i `Biblioteka`** — `frontend/src/components/SidebarNav.jsx`:
-  - `Warsztat`: `Pomysł`, `Analiza`, `Decision Memo`.
-  - `Biblioteka`: `Historia`.
-  - Labels z kluczy `nav.workspace` / `nav.library`.
-- **Wzmocnione transitions** — `frontend/src/index.css`:
-  - `.nav-item`: hover dodaje `translate-x-0.5` + `bg-accent`.
-  - `.workflow-card`: hover dodaje `translate-y-px` + `border-foreground/20`.
-  - `.theme-toggle`, `.sidebar-link`, `.btn`: `transition-all 150ms` z hover/focus-visible ring.
-
-### Verified
-- `vite build` → 1598 modules transformed, dist 239 KB JS + 47.7 KB CSS, 0 errors.
-- `jest` → 25/25 backend tests pass (workflowRegistry, agentRegistry, runState, providers, …).
-- `/health` → 200 OK.
-- `/api/workflows` → 6 workflows (develop_idea, critique_idea, premortem, compare_variants, decision_memo, full_analysis) z poprawnymi agentami.
-- `POST /api/forge/runs` (decision_memo, fake provider) → 200 + `runId`.
-- `dist/assets/*.js` grep `nav.templates`/`nav.agents`/`Szablony`/`Agenci` → 0 (Radosław celowo usunął te zakładki).
-- `dist/assets/*.js` grep `nav.workspace`/`brandSub`/`footer.privacy`/`themeToggleLabel`/`bc.*` → 9 wystąpień.
-- `dist/assets/*.css` grep `data-theme=light` → 1 (light theme tokeny).
-- `dist/assets/*.css` grep `prefers-reduced-motion` → 1.
-- `dist/assets/*.css` grep `[data-theme-icon=dark]` + `[data-theme-icon=light]` + light overrides → 4 selektory.
-- `GET /icons/icon_dark_theme.svg` → `200 Content-Length: 587` (real bytes).
-
-### Risks
-- camofox-browser na Macu zwrócił HTTP 500 z `/tabs` — screenshoty wizualne pominięte (poza scope, znany problem ze skill).
-- `frontend/src/i18n/*.js` (pl/en/de) to martwe duplikaty `.json` — nie są importowane przez `I18nProvider.jsx`. Poza scope tej sesji.
-- Mobile drawer (slide-in + ESC + scrim) — OD ma, React ma tylko `hidden md:flex`. Pominięte jako duży refaktor poza minimalnym zakresem naprawy.
-- Topbar "Skróty klawiszowe" button (placeholder w OD) — pominięty, brak zdefiniowanej funkcji.
-### Fixed
-- **Layout zakładek — tylko jeden aktywny widok w głównym panelu** — `frontend/src/App.jsx`:
-  - Poprzednio widoki `AnalysisProgress`, `DecisionMemoPanel`, `RunsHistoryPanel` (top-5) były renderowane jako rodzeństwo `<main>` lub pod `IdeaInputForm`, niezależnie od wybranej zakładki w sidebarze. Wynik: po kliknięciu "Pomysł" pod formularzem pojawiały się sekcje "Analiza", "Decision Memo", "Historia analiz" w jednym flow.
-  - Teraz `<main>` renderuje wyłącznie jedną aktywną zakładkę przez `ActiveTabContent` switch na `nav`. Nowa funkcja `openRun(runId)` kieruje do `nav='memo'` (gdy ukończony) lub `nav='analysis'` (gdy w toku / błąd). `handleStart()` po utworzeniu runu ustawia `nav='analysis'`.
-  - 6 dedykowanych widoków: `IdeaView`, `AnalysisView`, `DecisionMemoView`, `HistoryView`, `SettingsView` (placeholder), `HelpView` (placeholder).
-- **`analysis` i `memo` jako realne zakładki** — `frontend/src/components/SidebarNav.jsx`:
-  - Sidebar miał tylko pozycje `idea` i `history` działające; kliknięcie `templates`, `agents`, `settings`, `help` nie zmieniało widoku. Dodane pozycje `analysis` (ikona `Activity`) i `memo` (ikona `FileText`).
-- **`Pomysł` nie pokazuje już memo i analysis pod formularzem** — zgodnie z briefem Radosława i `FIX_TAB_CONTENT_RENDERING_MAIN_VIEW.md`: tylko jeden widok aktywny naraz. `IdeaView` zawiera tylko `IdeaInputForm` + `AnalysisExplainer` + top-5 `RunsHistoryPanel` + `BackendStatus` (gdy down).
+  - Dwa obrazy SVG z `data-theme-icon` przełączane przez CSS.
+  - Tytuł `Idea Forge` + podtytuł `AI walidacja pomysłów`.
+- **Sidebar podzielony na grupy** — `Warsztat` (Pomysł, Analiza, Decision Memo) + `Biblioteka` (Historia).
+- **Light mode z theme toggle** — `frontend/src/index.css` + `useTheme.js` + `ThemeToggle.jsx`.
+- **Breadcrumb + User chip w topbarze** — `frontend/src/components/HeaderBar.jsx`.
+- **`prefers-reduced-motion`** — globalny `@media` w `index.css`.
 
 ### Removed
-- **Zakładka `Szablony` usunięta** — `frontend/src/components/SidebarNav.jsx` + klucze `nav.templates` × 3 pliki i18n.
-- **Zakładka `Agenci` usunięta** — ta sama lista; zakładka nie miała widoku, endpointu ani treści.
-- **Backupy z developer's working tree** — `frontend/src/App.jsx.backup-*` (4 pliki), `frontend/src/theme.css.bak-monochrome-20260620`, `backend/src/artifacts/decisionMemoBuilder.js.backup-20260617-155627`. `.gitignore` rozszerzony o `*.backup-*`, `*.bak-*`, `*.bak`.
+- **Zakładki `Szablony` i `Agenci`** — usunięte z SidebarNav + i18n keys.
+- **Martwe klasy `.actionbar*` w `index.css`** — po migracji do Tailwind.
+- **Klasy `.backup-*` i `.bak-*`** — rozszerzony `.gitignore`.
 
-### Added
-- **`frontend/src/components/PlaceholderView.jsx`** — generyczna karta "Wkrótce" dla `Settings` i `Help`. Tekst placeholdera z i18n (`placeholder.comingSoon`).
-- **Klucze i18n** — `frontend/src/i18n/{pl,en,de}.json`:
-  - dodane: `nav.analysis`, `nav.memo`, `placeholder.comingSoon`, `placeholder.settingsTitle`, `placeholder.helpTitle`
-  - usunięte: `nav.templates`, `nav.agents`
+### Verified
+- `npm test` → **33/33 tests pass** (6 suites).
+- `vite build` → 0 errors, dist 242.82 KB JS + 47.81 KB CSS.
+- `/health` → 200 OK · `/api/workflows` → 6 workflows.
 
-### Tested
-- `vite build` — 1596 modules transformed, 0 errors, dist 234KB JS + 43KB CSS
-- Vite dev server (5173) — `--force` re-optimization, serwuje nowy JSX (curl `src/App.jsx` zawiera `PlaceholderView`, `ActiveTabContent`, wszystkie 6 case'ów switcha)
-- Bundle dist nie zawiera kluczy `nav.templates` / `nav.agents` (grep = 0)
-- Bundle dist zawiera klucze `nav.analysis` / `nav.memo` / `placeholder.comingSoon` (grep = 4)
-- Backend (3210) — `/health` = 200 OK
-- 8/8 backend tests (workflowRegistry.test.js) — pass
 
 ## [0.4.0] — 2026-06-17
 

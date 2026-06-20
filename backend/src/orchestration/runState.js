@@ -1,39 +1,21 @@
-/**
- * AI Idea Forge — Run State
- * Tracks state of a single forge run.
- *
- * Provider metadata:
- *   - provider:        ID providera który wykonał run (np. 'freellmapi')
- *   - requestedModel:  Model który klient zażądał (np. 'auto')
- *   - actualModel:     Faktyczny model zwrócony przez serwer LLM
- *                      (przydatne gdy model='auto' i serwer sam wybiera)
- */
-
 export class RunState {
-  constructor({ runId, workflowType, idea, context, constraints, agents, provider, requestedModel }) {
+  constructor({ runId, workflowType, idea, context, constraints, language, agents, provider, requestedModel }) {
     this.runId = runId;
     this.workflowType = workflowType;
     this.idea = idea;
     this.context = context || '';
-    this.constraints = constraints || '';
-    this.status = 'pending'; // pending | running | completed | failed
+    this.constraints = constraints || ''; this.language = ['en', 'de', 'pl'].includes(language) ? language : 'pl';
+    this.status = 'pending';
     this.currentAgent = null;
-    this.stages = agents.map(agentId => ({
-      agent: agentId,
-      status: 'pending', // pending | running | completed | failed
-      output: null,
-      error: null,
-      startedAt: null,
-      completedAt: null,
-      model: null, // per-agent actual model (jeśli różni się per call)
-    }));
+    this.provider = provider;
+    this.requestedModel = requestedModel || null;
+    this.actualModel = null;
     this.createdAt = new Date().toISOString();
     this.completedAt = null;
-
-    // Provider metadata (filled in at run start or first agent)
-    this.provider = provider || null;
-    this.requestedModel = requestedModel || null;
-    this.actualModel = null; // set on first successful response
+    this.cancelledAt = null;
+    this.cancelReason = null;
+    this.error = null;
+    this.stages = agents.map((agent) => ({ agent, status: 'pending' }));
   }
 
   setRunning() {
@@ -41,16 +23,16 @@ export class RunState {
   }
 
   startAgent(agentId) {
-    const stage = this.stages.find(s => s.agent === agentId);
-    if (!stage) throw new Error(`Nieznany agent: ${agentId}`);
+    const stage = this.stages.find((s) => s.agent === agentId);
+    if (!stage) throw new Error(`Unknown agent: ${agentId}`);
     stage.status = 'running';
     stage.startedAt = new Date().toISOString();
     this.currentAgent = agentId;
   }
 
   completeAgent(agentId, output, { model } = {}) {
-    const stage = this.stages.find(s => s.agent === agentId);
-    if (!stage) throw new Error(`Nieznany agent: ${agentId}`);
+    const stage = this.stages.find((s) => s.agent === agentId);
+    if (!stage) throw new Error(`Unknown agent: ${agentId}`);
     stage.status = 'completed';
     stage.output = output;
     stage.completedAt = new Date().toISOString();
@@ -62,11 +44,28 @@ export class RunState {
   }
 
   failAgent(agentId, error) {
-    const stage = this.stages.find(s => s.agent === agentId);
-    if (!stage) throw new Error(`Nieznany agent: ${agentId}`);
+    const stage = this.stages.find((s) => s.agent === agentId);
+    if (!stage) throw new Error(`Unknown agent: ${agentId}`);
     stage.status = 'failed';
     stage.error = error;
     stage.completedAt = new Date().toISOString();
+    this.currentAgent = null;
+  }
+
+  cancel(reason = 'cancelled') {
+    this.status = 'cancelled';
+    this.cancelledAt = new Date().toISOString();
+    this.completedAt = this.cancelledAt;
+    this.cancelReason = reason;
+    const running = this.stages.find((s) => s.status === 'running');
+    if (running) {
+      running.status = 'cancelled';
+      running.error = reason;
+      running.completedAt = this.cancelledAt;
+    }
+    this.stages = this.stages.map((stage) => (
+      stage.status === 'pending' ? { ...stage, status: 'cancelled', completedAt: this.cancelledAt } : stage
+    ));
     this.currentAgent = null;
   }
 
@@ -78,14 +77,15 @@ export class RunState {
 
   setFailed(error) {
     this.status = 'failed';
+    this.error = error;
     this.completedAt = new Date().toISOString();
     this.currentAgent = null;
   }
 
   getPriorOutputs(currentAgentId) {
     return this.stages
-      .filter(s => s.status === 'completed' && s.agent !== currentAgentId)
-      .map(s => ({ agent: s.agent, content: s.output }));
+      .filter((s) => s.status === 'completed' && s.agent !== currentAgentId)
+      .map((s) => ({ agent: s.agent, output: s.output }));
   }
 
   toJSON() {
@@ -94,7 +94,7 @@ export class RunState {
       workflowType: this.workflowType,
       idea: this.idea,
       context: this.context,
-      constraints: this.constraints,
+      constraints: this.constraints, language: this.language,
       status: this.status,
       currentAgent: this.currentAgent,
       provider: this.provider,
@@ -103,6 +103,9 @@ export class RunState {
       stages: this.stages,
       createdAt: this.createdAt,
       completedAt: this.completedAt,
+      cancelledAt: this.cancelledAt,
+      cancelReason: this.cancelReason,
+      error: this.error,
     };
   }
 }

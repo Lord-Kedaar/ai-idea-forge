@@ -96,10 +96,25 @@ The hard rule: tab views are never rendered as siblings of `<main>`. Each view i
 ## Tests
 
 ```bash
-NODE_OPTIONS='--experimental-vm-modules' node node_modules/.bin/jest
+npm test
+# or explicitly:
+NODE_OPTIONS='--experimental-vm-modules' node node_modules/.bin/jest --forceExit
 ```
 
-Currently 8/8 unit tests pass for `workflowRegistry` (covers all 6 workflows: `develop_idea`, `critique_idea`, `premortem`, `compare_variants`, `decision_memo`, `full_analysis`).
+**33/33 unit tests pass** across 6 suites:
+
+| Suite | Coverage |
+|---|---|
+| `workflowRegistry.test.js` | workflow definitions + agent pipelines |
+| `agentRegistry.test.js` | agent definitions + prompt generation |
+| `runState.test.js` | run state lifecycle + provider metadata |
+| `decisionMemoBuilder.test.js` | memo artifact building |
+| `providerRegistry.test.js` | provider abstraction (fake/omlx/freellmapi) |
+| `priorOutputs.test.js` | `priorOutputs` field name regression + prompt integration |
+
+Critical bug fixed in this release: `getPriorOutputs()` was returning `{ agent, content }`
+but the prompt template reads `o.output` — agents 2+ in any pipeline received `undefined`
+for all prior outputs. Fixed to return `{ agent, output }`.
 
 ## API
 

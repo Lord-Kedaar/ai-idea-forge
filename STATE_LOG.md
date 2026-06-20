@@ -62,3 +62,41 @@ OpenDesign zostawił w `/home/radek/ai-idea-forge/design-reference/` artefakt HT
 - Push na remote wymaga GitHub auth — klucz `id_ed25519` zweryfikowany (`Hi Lord-Kedaar! You've successfully authenticated`)
 
 ## 2026-06-15 — UI spec refactor (Metricus)
+
+## 2026-06-20 — Decision Memo PDF export fix (Metricus)
+
+### Kontekst
+Na ekranie Decision Memo był widoczny przycisk "Podgląd artefaktu" oraz niespójny przycisk "Drukuj / zapisz jako PDF". Eksport do PDF nie działał stabilnie.
+
+### Pliki zmienione
+- `frontend/src/components/DecisionMemoPanel.jsx` — usunięty preview, dodany eksport PDF przez ukryty iframe + `print()`.
+- `frontend/src/i18n/pl.json` — `downloadPdf` → `Zapisz jako PDF`.
+- `frontend/src/i18n/en.json` — `downloadPdf` → `Save as PDF`.
+- `frontend/src/i18n/de.json` — `downloadPdf` → `Als PDF speichern`.
+
+### Weryfikacja
+- `npm -C frontend run build` → PASS (`vite build`, 0 errors, 0 warnings)
+- `DecisionMemoPanel.jsx` nie zawiera już `previewAction` ani `window.print()` preview button.
+
+## 2026-06-20 — priorOutputs field mismatch fix + regression tests (Metricus)
+
+### Kontekst
+Radosław zauważył, że idea jest wstrzykiwana 2× i zapytał o szczegóły. Podczas auditu kodu odkryto:
+1. Bug A: `getPriorOutputs()` zwracała `{ agent, content }` ale prompt template czytał `o.output` → undefined.
+2. Bug B: brak testów integracyjnych dla tego scenariusza.
+
+### Pliki zmienione
+- `backend/src/orchestration/runState.js` — `content` → `output` w `getPriorOutputs()`
+- `backend/tests/unit/priorOutputs.test.js` (nowy) — 8 testów integracyjnych:
+  - field name regression test
+  - first agent zero prior outputs
+  - excludes current agent from prior list
+  - prompt template renders priorOutputs correctly
+  - generator gets no Prior agent outputs section
+  - prior outputs ordered correctly in user prompt
+  - idea duplication semantics for first vs subsequent agents
+  - subsequent agent gets idea + prior outputs
+
+### Weryfikacja
+- `npm test` → **33/33 PASS**
+
