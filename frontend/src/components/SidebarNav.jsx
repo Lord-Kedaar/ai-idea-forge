@@ -13,7 +13,7 @@ const NAV = [
 export function SidebarNav({ active, onChange }) {
   const { t } = useI18n();
   return (
-    <aside className="hidden md:flex md:flex-col md:w-56 md:shrink-0 border-r border-border bg-background/40">
+    <aside className="flex flex-col h-full">
       {/* Brand — mirrors OpenDesign sidebar-brand */}
       <div className="sidebar-brand flex items-center gap-2.5 px-3 pt-4 pb-3">
         <img

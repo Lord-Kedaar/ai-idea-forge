@@ -1,101 +1,89 @@
-/**
- * AI Idea Forge — Run Engine
- * Sequential agent pipeline orchestrator.
- */
-
 import { RunState } from './runState.js';
 import { RunEvents } from './runEvents.js';
-import { getAgent, getAgentPrompts } from '../agents/agentRegistry.js';
+import { getAgentPrompts } from '../agents/agentRegistry.js';
 import { getWorkflow } from '../workflows/workflowRegistry.js';
 import { getActiveProvider, getActiveProviderId } from '../providers/providerRegistry.js';
 import { looksDegenerate, normalizeText } from '../utils/textGuards.js';
-import { createTimeoutAbortSignal } from '../utils/timeouts.js';
 import { buildDecisionMemo } from '../artifacts/decisionMemoBuilder.js';
 import { saveRun } from '../storage/runStorage.js';
 
-/**
- * In-memory store for active run SSE responses (runId -> res).
- */
 const activeResponses = new Map();
+const activeRuns = new Map();
 
-/**
- * Execute a single agent and return its output.
- */
-async function executeAgent(agentId, state, env, events) {
-  const agent = getAgent(agentId);
+function createCombinedAbortSignal(timeoutMs, cancelSignal) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error('Agent timeout')), timeoutMs);
+
+  const abort = () => controller.abort(cancelSignal.reason || new Error('Run cancelled'));
+  if (cancelSignal.aborted) abort();
+  else cancelSignal.addEventListener('abort', abort, { once: true });
+
+  controller.signal._clear = () => {
+    clearTimeout(timer);
+    cancelSignal.removeEventListener('abort', abort);
+  };
+
+  return controller.signal;
+}
+
+function emit(runId, events, type, payload) {
+  const event = { type, runId, at: new Date().toISOString(), ...payload };
+  events.emit(type, event);
+  const res = activeResponses.get(runId);
+  if (res) events.emitToResponse(res, type, event);
+}
+
+async function executeAgent(agentId, state, env, cancelSignal) {
   const provider = getActiveProvider();
-
   const prompts = getAgentPrompts(agentId, {
     idea: state.idea,
     context: state.context,
     constraints: state.constraints,
-    priorOutputs: state.getPriorOutputs(agentId),
+    priorOutputs: state.getPriorOutputs(agentId), language: state.language,
   });
 
-  const messages = [
-    { role: 'system', content: prompts.systemPrompt },
-    { role: 'user', content: prompts.userPrompt },
-  ];
-
-  const abortSignal = createTimeoutAbortSignal(env.turnTimeoutMs);
-
+  const abortSignal = createCombinedAbortSignal(env.turnTimeoutMs, cancelSignal);
   try {
     const result = await provider.chatCompletion({
-      messages,
+      messages: [
+        { role: 'system', content: prompts.systemPrompt },
+        { role: 'user', content: prompts.userPrompt },
+      ],
       temperature: 0.7,
       maxTokens: env.maxAgentOutputTokens,
       abortSignal,
       metadata: { agentId, runId: state.runId },
     });
 
-    let content = result.content;
-
-    // Normalize
-    content = normalizeText(content);
-
-    // Check degeneration
+    const content = normalizeText(result.content);
     if (looksDegenerate(content)) {
-      console.warn(`[RunEngine] Degenerate output from ${agentId}, using raw (flagged)`);
+      console.warn(`[RunEngine] Degenerate output from ${agentId}, using raw content`);
     }
 
     return { content, model: result.model, usage: result.usage };
   } finally {
-    // Clear the timeout if still alive
-    if (!abortSignal.aborted) {
-      abortSignal._clear?.();
-    }
+    abortSignal._clear?.();
   }
 }
 
-/**
- * Main entry point: execute a forge run.
- * @param {string} runId
- * @param {object} params — { workflowType, idea, context, constraints }
- * @param {object} env — config env
- */
-export async function executeRun(runId, { workflowType, idea, context, constraints }, env) {
+export async function executeRun(runId, { workflowType, idea, context, constraints, language }, env) {
   const workflow = getWorkflow(workflowType);
-  const agents = workflow.agents;
   const providerId = getActiveProviderId();
+  const cancelController = new AbortController();
   const state = new RunState({
     runId,
     workflowType,
     idea,
     context,
-    constraints,
-    agents,
+    constraints, language,
+    agents: workflow.agents,
     provider: providerId,
     requestedModel: env.defaultModel || (providerId === 'freellmapi' ? env.freellmapiModel : null) || null,
   });
   const events = new RunEvents();
 
-  // Register any SSE response waiting for this run
-  const res = activeResponses.get(runId);
-  if (res) {
-    events.on('*', (event) => events.emitToResponse(res, event.type, event));
-  }
+  activeRuns.set(runId, { controller: cancelController, state, events });
 
-  // Wire events to storage
   events.on('*', async () => {
     try {
       await saveRun(state);
@@ -104,83 +92,71 @@ export async function executeRun(runId, { workflowType, idea, context, constrain
     }
   });
 
-  state.setRunning();
-  events.emit('run_started', { runId, provider: providerId });
-
-  let finalMemo = null;
-
   try {
-    for (const agentId of agents) {
+    state.setRunning();
+    await saveRun(state);
+    emit(runId, events, 'run_started', { provider: providerId });
+
+    for (const agentId of workflow.agents) {
+      if (cancelController.signal.aborted) throw new Error('Run cancelled');
+
       state.startAgent(agentId);
-      events.emit('agent_started', { runId, agentId });
+      await saveRun(state);
+      emit(runId, events, 'agent_started', { agent: agentId });
 
       try {
-        const { content, model, usage } = await executeAgent(agentId, state, env, events);
-        state.completeAgent(agentId, content, { model });
-        events.emit('agent_completed', {
-          runId,
-          agentId,
-          output: content.slice(0, 100),
-          model,
-          usage,
-        });
+        const result = await executeAgent(agentId, state, env, cancelController.signal);
+        if (cancelController.signal.aborted) throw new Error('Run cancelled');
+        state.completeAgent(agentId, result.content, { model: result.model });
+        await saveRun(state);
+        emit(runId, events, 'agent_completed', { agent: agentId, output: result.content, model: result.model, usage: result.usage });
       } catch (err) {
-        console.error(`[RunEngine] Agent ${agentId} error: ${err.message}`);
+        if (cancelController.signal.aborted) throw new Error('Run cancelled');
         state.failAgent(agentId, err.message);
-        events.emit('agent_failed', { runId, agentId, error: err.message });
-        // Continue with next agent per spec — pipeline continues even if one agent fails
+        await saveRun(state);
+        emit(runId, events, 'agent_failed', { agent: agentId, error: err.message });
+        throw err;
       }
     }
 
-    // Build decision memo (always, even if some agents failed)
-    events.emit('artifact_started', { runId, artifactType: 'decision-memo' });
-
-    try {
-      finalMemo = buildDecisionMemo(state);
-      await saveRun(state, { decisionMemo: finalMemo });
-      events.emit('artifact_completed', { runId, artifactType: 'decision-memo' });
-    } catch (err) {
-      console.error('[RunEngine] Decision memo build error:', err.message);
-      events.emit('artifact_failed', { runId, artifactType: 'decision-memo', error: err.message });
-      try {
-        finalMemo = buildDecisionMemo(state); // fallback minimal memo
-        await saveRun(state, { decisionMemo: finalMemo });
-      } catch (_) {
-        finalMemo = null;
-      }
-    }
-
-    // Mark completed BEFORE emitting (synchronously — this is the fix)
+    const finalMemo = buildDecisionMemo(state);
     state.setCompleted();
-    // Synchronously save so the completedAt/status are persisted before SSE fires
     await saveRun(state, { decisionMemo: finalMemo });
-
-    events.emit('run_completed', { runId, memo: finalMemo, provider: state.provider, actualModel: state.actualModel });
-
-    // Notify SSE
-    if (res) {
-      events.emitToResponse(res, 'run_completed', { runId, memo: finalMemo, provider: state.provider, actualModel: state.actualModel });
-    }
+    emit(runId, events, 'run_completed', { memo: finalMemo, provider: state.provider, actualModel: state.actualModel });
+    return { state, finalMemo };
   } catch (err) {
+    if (cancelController.signal.aborted || err.message === 'Run cancelled') {
+      state.cancel('Stopped by user');
+      await saveRun(state);
+      emit(runId, events, 'run_cancelled', { reason: state.cancelReason });
+      return { state, finalMemo: null };
+    }
+
     console.error('[RunEngine] Run fatal error:', err.message);
     state.setFailed(err.message);
-    // Synchronously save failed state
     await saveRun(state);
-    events.emit('run_failed', { runId, error: err.message });
-    if (res) {
-      events.emitToResponse(res, 'run_failed', { runId, error: err.message });
-    }
+    emit(runId, events, 'run_failed', { error: err.message });
+    return { state, finalMemo: null };
+  } finally {
+    activeRuns.delete(runId);
+    activeResponses.delete(runId);
   }
-
-  // Cleanup SSE response
-  activeResponses.delete(runId);
-
-  return { state, finalMemo };
 }
 
-/**
- * Register an SSE response for a run (called by SSE route).
- */
+export async function cancelRun(runId, reason = 'Stopped by user') {
+  const active = activeRuns.get(runId);
+  if (!active) return { ok: false, active: false };
+
+  active.controller.abort(new Error(reason));
+  active.state.cancel(reason);
+  await saveRun(active.state);
+  emit(runId, active.events, 'run_cancelled', { reason });
+  activeRuns.delete(runId);
+  activeResponses.delete(runId);
+  return { ok: true, active: true, run: active.state.toJSON() };
+}
+
 export function registerSSEResponse(runId, res) {
-  activeResponses.set(runId, res);
+  if (!res) activeResponses.delete(runId);
+  else activeResponses.set(runId, res);
 }

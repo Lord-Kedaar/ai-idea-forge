@@ -37,9 +37,9 @@ export async function saveRun(state, extras = {}) {
   );
 
   // Save agent outputs separately for easy access
-  const agentOutputs = state.stages
-    .filter(s => s.output)
-    .map(s => ({ agent: s.agent, output: s.output }));
+  const agentOutputs = (runData.stages || [])
+    .filter((s) => s.output)
+    .map((s) => ({ agent: s.agent, output: s.output }));
 
   await writeFile(
     join(runDir, 'agent-outputs.json'),

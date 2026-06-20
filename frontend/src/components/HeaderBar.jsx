@@ -1,3 +1,4 @@
+import { Menu, X } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeToggle } from './ThemeToggle';
@@ -15,7 +16,10 @@ function NavBreadcrumb({ active }) {
   const { t } = useI18n();
   const labelKey = NAV_LABEL_KEYS[active] || 'bc.idea';
   return (
-    <nav className="topbar-breadcrumb flex items-center gap-1.5 text-sm text-muted-foreground min-w-0" aria-label={t('bc.workspace')}>
+    <nav
+      className="topbar-breadcrumb flex items-center gap-1.5 text-sm text-muted-foreground min-w-0"
+      aria-label={t('bc.workspace')}
+    >
       <span className="hidden sm:inline truncate">{t('bc.workspace')}</span>
       <span className="hidden sm:inline opacity-40" aria-hidden="true">/</span>
       <span className="text-foreground font-medium truncate">{t(labelKey)}</span>
@@ -23,10 +27,18 @@ function NavBreadcrumb({ active }) {
   );
 }
 
-export function HeaderBar({ rightSlot, active }) {
+export function HeaderBar({ rightSlot, active, onMenuToggle, isMenuOpen }) {
   return (
     <header className="flex h-14 items-center justify-between gap-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 md:px-6 sticky top-0 z-30">
       <div className="flex items-center gap-3 min-w-0">
+        <button
+          type="button"
+          className="lg:hidden btn btn-ghost h-8 w-8 inline-flex items-center justify-center rounded-md -ml-1"
+          onClick={onMenuToggle}
+          aria-label={isMenuOpen ? 'Zamknij menu' : 'Otwórz menu'}
+        >
+          {isMenuOpen ? <X className="h-4 w-4" aria-hidden="true" /> : <Menu className="h-4 w-4" aria-hidden="true" />}
+        </button>
         {active && <NavBreadcrumb active={active} />}
       </div>
       <div className="flex items-center gap-2 md:gap-3 shrink-0">

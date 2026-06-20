@@ -1,189 +1,220 @@
-/**
- * AI Idea Forge — Decision Memo Builder
- * Generates DECISION_MEMO.md from run state.
- */
-
 import { AGENT_DEFINITIONS } from '../agents/agentDefinitions.js';
+import { stripMarkdownNoise } from '../utils/textGuards.js';
 
-/**
- * Format raw agent output as a markdown section.
- * Wraps content in ### [Agent Name] and splits into paragraphs.
- */
-function formatAgentOutput(agentName, content) {
-  if (!content || !content.trim()) {
-    return `_Brak outputu od ${agentName}._`;
-  }
-  const paragraphs = content
-    .split(/\n\s*\n+/)
-    .map(p => p.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim())
-    .filter(p => p.length > 0);
-  if (paragraphs.length === 0) {
-    return `_Brak tre\u015bci od ${agentName}._`;
-  }
-  const body = paragraphs.join('\n\n');
-  return `### ${agentName}\n\n${body}`;
+const AGENT_ORDER = ['generator', 'skeptic', 'pragmatist', 'redteam', 'editor', 'decider'];
+const MAX_ITEM_LENGTH = 220;
+const MEMO_COPY = {
+  pl: {
+    title: 'DECISION MEMO', problem: 'Problem', context: 'Kontekst', constraints: 'Ograniczenia',
+    proposal: 'Propozycja', keyFindings: 'Kluczowe ustalenia', risks: 'Ryzyka i braki danych',
+    alternatives: 'Alternatywy', minimumExperiment: 'Minimalny eksperyment', recommendation: 'Rekomendacja',
+    status: 'Status', nextStep: 'Następny krok', noProblem: '_Brak problemu._',
+    noContext: '_Brak dodatkowego kontekstu._', noConstraints: '_Brak wskazanych ograniczeń._',
+    noProposal: '_Brak propozycji._', noFindings: '_Brak ustaleń._', noRisks: '_Brak dodatkowych ryzyk._',
+    noAlternatives: '_Brak alternatyw._', noExperiment: '_Brak eksperymentu._',
+    noRecommendation: '_Brak rekomendacji._', noNextStep: '_Brak następnego kroku._',
+  },
+  en: {
+    title: 'DECISION MEMO', problem: 'Problem', context: 'Context', constraints: 'Constraints',
+    proposal: 'Proposal', keyFindings: 'Key findings', risks: 'Risks and data gaps',
+    alternatives: 'Alternatives', minimumExperiment: 'Minimum experiment', recommendation: 'Recommendation',
+    status: 'Status', nextStep: 'Next step', noProblem: '_No problem provided._',
+    noContext: '_No additional context provided._', noConstraints: '_No constraints provided._',
+    noProposal: '_No proposal available._', noFindings: '_No findings available._',
+    noRisks: '_No additional risks._', noAlternatives: '_No alternatives available._',
+    noExperiment: '_No experiment available._', noRecommendation: '_No recommendation available._',
+    noNextStep: '_No next step available._',
+  },
+  de: {
+    title: 'DECISION MEMO', problem: 'Problem', context: 'Kontext', constraints: 'Einschränkungen',
+    proposal: 'Vorschlag', keyFindings: 'Wichtigste Erkenntnisse', risks: 'Risiken und Datenlücken',
+    alternatives: 'Alternativen', minimumExperiment: 'Minimalexperiment', recommendation: 'Empfehlung',
+    status: 'Status', nextStep: 'Nächster Schritt', noProblem: '_Kein Problem angegeben._',
+    noContext: '_Kein zusätzlicher Kontext angegeben._', noConstraints: '_Keine Einschränkungen angegeben._',
+    noProposal: '_Kein Vorschlag verfügbar._', noFindings: '_Keine Erkenntnisse verfügbar._',
+    noRisks: '_Keine zusätzlichen Risiken._', noAlternatives: '_Keine Alternativen verfügbar._',
+    noExperiment: '_Kein Experiment verfügbar._', noRecommendation: '_Keine Empfehlung verfügbar._',
+    noNextStep: '_Kein nächster Schritt verfügbar._',
+  },
+};
+
+function memoCopy(language) {
+  return MEMO_COPY[['en', 'de', 'pl'].includes(language) ? language : 'pl'];
 }
 
-/**
- * Build a DECISION_MEMO.md string from run state.
- */
+
+
+function truncate(text, max = MAX_ITEM_LENGTH) {
+  const clean = stripMarkdownNoise(text || '').replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  return clean.slice(0, max - 1).trim() + '…';
+}
+
+function safeJsonParse(text) {
+  if (!text) return null;
+  const raw = text.trim();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function splitFallbackFindings(text) {
+  const rawLines = String(text || '')
+    .replace(/\r\n/g, '\n')
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/^#{1,6}\s+/.test(line))
+    .filter((line) => !/^```/.test(line))
+    .filter((line) => !/^[-_]{3,}$/.test(line))
+    .filter((line) => !/^\|.*\|$/.test(line))
+    .filter((line) => !/\|\s*[-:]{2,}\s*\|/.test(line))
+    .filter((line) => !/\bDECISION_MEMO\.md\b/i.test(line))
+    .filter((line) => !/^\{\s*$|^\}\s*$|^\[\s*$|^\]\s*,?$/.test(line))
+    .filter((line) => !/^"?(summary|findings|risks|recommendation|status)"?\s*[:[]/i.test(line))
+    .filter((line) => !/^json\b/i.test(line));
+
+  const clean = stripMarkdownNoise(rawLines.join('\n'));
+  const sentences = clean
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.replace(/^[-•*]\s*/, '').trim())
+    .filter((sentence) => sentence.length >= 8)
+    .filter((sentence) => !/[{}[\]"|]{2,}/.test(sentence))
+    .filter((sentence) => !/^(Temat|Problem|Kontekst|Ograniczenia|Status)\b/i.test(sentence))
+    .map((sentence) => truncate(sentence))
+    .slice(0, 5);
+
+  if (sentences.length) return sentences;
+
+  return rawLines
+    .map((line) => stripMarkdownNoise(line))
+    .map((line) => line.replace(/^"|",?$/g, '').trim())
+    .filter((line) => line.length >= 8)
+    .filter((line) => !/[{}[\]"|]{2,}/.test(line))
+    .map((line) => truncate(line))
+    .slice(0, 5);
+}
+
+function normalizeAgentOutput(agentId, output) {
+  const parsed = safeJsonParse(output);
+  if (parsed && typeof parsed === 'object') {
+    return {
+      agent: agentId,
+      name: AGENT_DEFINITIONS[agentId]?.name || agentId,
+      summary: truncate(parsed.summary || ''),
+      findings: Array.isArray(parsed.findings) ? parsed.findings.map((x) => truncate(x)).filter(Boolean).slice(0, 5) : [],
+      risks: Array.isArray(parsed.risks) ? parsed.risks.map((x) => truncate(x, 180)).filter(Boolean).slice(0, 3) : [],
+      recommendation: truncate(parsed.recommendation || '', 260),
+      status: normalizeStatus(parsed.status),
+    };
+  }
+
+  const findings = splitFallbackFindings(output);
+  return {
+    agent: agentId,
+    name: AGENT_DEFINITIONS[agentId]?.name || agentId,
+    summary: findings[0] || `_Brak użytecznego outputu od agenta ${agentId}._`,
+    findings: findings.slice(1, 5),
+    risks: [],
+    recommendation: '',
+    status: 'NEEDS_EVIDENCE',
+  };
+}
+
+function normalizeStatus(status) {
+  const value = String(status || '').toUpperCase().replace('-', '_');
+  if (['GO', 'REVISE', 'NO_GO', 'NEEDS_EVIDENCE'].includes(value)) return value;
+  return 'NEEDS_EVIDENCE';
+}
+
+function bulletList(items, empty = '_Brak danych._') {
+  const clean = (items || []).map((item) => truncate(item)).filter(Boolean);
+  if (!clean.length) return empty;
+  return clean.map((item) => `- ${item}`).join('\n');
+}
+
+function agentSection(result) {
+  return [
+    `### ${result.name}`,
+    '',
+    result.summary || '_Brak podsumowania._',
+    '',
+    '**Ustalenia**',
+    bulletList(result.findings),
+    '',
+    '**Ryzyka / braki danych**',
+    bulletList(result.risks, '_Brak dodatkowych ryzyk._'),
+    '',
+    result.recommendation ? `**Rekomendacja agenta:** ${result.recommendation}` : '',
+  ].filter((line) => line !== '').join('\n');
+}
+
+function pickFirst(results, agentId, field) {
+  return results.find((r) => r.agent === agentId)?.[field] || '';
+}
+
+function collect(results, field, limit) {
+  return results.flatMap((r) => r[field] || []).filter(Boolean).slice(0, limit);
+}
+
+function chooseDecision(results) {
+  const decider = results.find((r) => r.agent === 'decider');
+  if (decider?.recommendation) return decider;
+  const editor = results.find((r) => r.agent === 'editor');
+  return editor || results[results.length - 1];
+}
+
 export function buildDecisionMemo(state) {
-  const { idea, context, constraints, stages, workflowType } = state;
+  const copy = memoCopy(state.language);
+  const outputs = Object.fromEntries((state.stages || []).map((stage) => [stage.agent, stage.output || '']));
+  const results = AGENT_ORDER
+    .filter((agentId) => outputs[agentId])
+    .map((agentId) => normalizeAgentOutput(agentId, outputs[agentId]));
+  const decision = chooseDecision(results) || { status: 'NEEDS_EVIDENCE', recommendation: '' };
+  const risks = collect(results, 'risks', 8);
+  const findings = collect(results, 'findings', 10);
 
-  const outputs = {};
-  for (const stage of stages) {
-    outputs[stage.agent] = stage.output || '';
-  }
+  return `# ${copy.title}
 
-  const gen = outputs.generator || '';
-  const skeptic = outputs.skeptic || '';
-  const pragmatist = outputs.pragmatist || '';
-  const redteam = outputs.redteam || '';
-  const editor = outputs.editor || '';
-  const decider = outputs.decider || '';
+## ${copy.problem}
+${truncate(state.idea || copy.noProblem, 600)}
 
-  // Extract facts vs assumptions from skeptic (simple heuristic split)
-  const skepticLines = skeptic.split('\n').filter(l => l.trim());
-  const facts = skepticLines.filter(l => /^\*\*[Ff]akt/i.test(l) || /^[\u2022\u2023\u25E6\u2043\u2219\-] .*(?:jest|to|s\u0105|to)/.test(l));
-  const assumptions = skepticLines.filter(l => /za\u0142o\u017ceni|assumption/i.test(l.toLowerCase()));
-  const risks = redteam ? extractRisks(redteam) : [];
+## ${copy.context}
+${state.context ? truncate(state.context, 900) : copy.noContext}
 
-  // Extract recommendation from decider
-  const { status, recommendation, nextStep } = extractDecision(decider);
+## ${copy.constraints}
+${state.constraints ? truncate(state.constraints, 700) : copy.noConstraints}
 
-  const contextSection = context ? `## Kontekst\n\n${context}\n\n` : '';
-  const constraintsSection = constraints ? `## Ograniczenia\n\n${constraints}\n\n` : '';
+## ${copy.proposal}
+${pickFirst(results, 'generator', 'summary') || copy.noProposal}
 
-  const memo = `# DECISION MEMO
+## ${copy.keyFindings}
+${bulletList(findings, copy.noFindings)}
 
-## Problem
+## ${copy.risks}
+${bulletList(risks, copy.noRisks)}
 
-${idea}
+## ${copy.alternatives}
+${pickFirst(results, 'skeptic', 'summary') || copy.noAlternatives}
 
-${contextSection}${constraintsSection}## Propozycja
+## ${copy.minimumExperiment}
+${pickFirst(results, 'pragmatist', 'recommendation') || copy.noExperiment}
 
-${formatAgentOutput('Generator', gen)}
+## ${copy.recommendation}
+${decision.recommendation || copy.noRecommendation}
 
-## Analiza Sceptyka
+## ${copy.status}
+${decision.status || 'NEEDS_EVIDENCE'}
 
-${formatAgentOutput('Sceptyk', skeptic)}
-
-## Perspektywa Pragmatyka
-
-${formatAgentOutput('Pragmatyk', pragmatist)}
-
-## Red Team \u2014 Analiza Ryzyk
-
-${formatAgentOutput('Red Team', redteam)}
-
-## Korekta Redaktora
-
-${formatAgentOutput('Redaktor', editor)}
-
-## Decyzja Decydenta
-
-${formatAgentOutput('Decydent', decider)}
-
-## Fakty
-
-${facts.length > 0 ? facts.join('\n') : '_Brak wyra\u017Anie wskazanych fakt\u00F3w._'}
-
-## Za\u0142o\u017Cenia
-
-${assumptions.length > 0 ? assumptions.join('\n') : '_Brak jawnych za\u0142o\u017Ce\u0144._'}
-
-## Argumenty za
-
-${extractPros(gen)}
-
-## Argumenty przeciw
-
-${extractCons(skeptic)}
-
-## Ukryte ryzyka
-
-${risks.length > 0 ? risks.map(r => `- ${r}`).join('\n') : '_Brak zidentyfikowanych ukrytych ryzyk._'}
-
-## Pytania otwarte
-
-${extractOpenQuestions(skeptic, pragmatist)}
-
-## Alternatywy
-
-${extractAlternatives(gen)}
-
-## Minimalny eksperyment
-
-${pragmatist ? extractMinExperiment(pragmatist) : '_Brak propozycji eksperymentu._'}
-
-## Rekomendacja
-
-${recommendation || '_Brak rekomendacji od Decydenta._'}
-
-## Status
-
-**${status || 'NEEDS_EVIDENCE'}**
-
-## Nast\u0119pny krok
-
-${nextStep || '_Brak wskazanego nast\u0119pnego kroku._'}
+## ${copy.nextStep}
+${decision.recommendation || copy.noNextStep}
 `;
-
-  return memo;
-}
-
-function extractRisks(text) {
-  const lines = text.split('\n').filter(l => l.trim());
-  return lines
-    .filter(l => /^[\u2022\u2023\u25E6\u2043\u2219\-*]/.test(l.trim()))
-    .map(l => l.replace(/^[\u2022\u2023\u25E6\u2043\u2219\-*]\s*/, '').replace(/\*\*/g, ''))
-    .slice(0, 7);
-}
-
-function extractDecision(text) {
-  const lines = text.split('\n').filter(l => l.trim());
-  const statusMatch = text.match(/\*\*Status:\*\*\s*(GO|REVISE|NO-GO|NEEDS_EVIDENCE)/i);
-  const status = statusMatch ? statusMatch[1].toUpperCase() : 'NEEDS_EVIDENCE';
-
-  const recLines = lines.filter(l => !/^#/.test(l) && l.trim());
-  const recommendation = recLines.slice(0, 3).join(' ');
-
-  const nextMatch = text.match(/nast(p|\u0119)pn(y|\u0105|ich) krok/i);
-  let nextStep = '';
-  if (nextMatch) {
-    const idx = lines.findIndex(l => l.toLowerCase().includes('nast\u0119pn'));
-    if (idx >= 0) nextStep = lines.slice(idx).join(' ').replace(/\*\*/g, '');
-  }
-
-  return { status, recommendation, nextStep };
-}
-
-function extractPros(text) {
-  const lines = text.split('\n').filter(l => l.trim());
-  const pros = lines.filter(l => /za|plus|korzy|no.*[Tt]ak/i.test(l) && /^[\u2022\u2023\u25E6\u2043\u2219\-*]/.test(l.trim()));
-  return pros.length > 0 ? pros.slice(0, 5).join('\n') : '_Brak wyra\u017Anych argument\u00F3w za._';
-}
-
-function extractCons(text) {
-  const lines = text.split('\n').filter(l => l.trim());
-  const cons = lines.filter(l => /przeciw|ryzyk|s\u0142ab|problem|wad/i.test(l) && /^[\u2022\u2023\u25E6\u2043\u2219\-*]/.test(l.trim()));
-  return cons.length > 0 ? cons.slice(0, 5).join('\n') : '_Brak wyra\u017Anych argument\u00F3w przeciw._';
-}
-
-function extractOpenQuestions(text) {
-  const lines = text.split('\n').filter(l => l.trim());
-  const questions = lines.filter(l => /\?|nie.*wiemy|uncertain|open/i.test(l));
-  return questions.length > 0 ? questions.slice(0, 5).join('\n') : '_Brak zidentyfikowanych pyta\u0144 otwartych._';
-}
-
-function extractAlternatives(text) {
-  const lines = text.split('\n').filter(l => l.trim());
-  const alts = lines.filter(l => /wariant|alternative|opcja|scenariusz/i.test(l) && /^[\u2022\u2023\u25E6\u2043\u2219\-*]/.test(l.trim()));
-  return alts.length > 0 ? alts.slice(0, 4).join('\n') : '_Brak wyra\u017Anie zdefiniowanych alternatyw._';
-}
-
-function extractMinExperiment(text) {
-  const lines = text.split('\n').filter(l => l.trim());
-  const exp = lines.filter(l => /eksperyment|spike|pilot|test|mvp/i.test(l));
-  return exp.length > 0 ? exp[0] : '_Brak propozycji._';
 }

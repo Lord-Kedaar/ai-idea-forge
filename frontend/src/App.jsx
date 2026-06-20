@@ -14,7 +14,6 @@ import {
 } from './api.js';
 
 import { useI18n } from './i18n/I18nProvider';
-import { HeaderBar } from './components/HeaderBar';
 import { AppShell } from './components/AppShell';
 import { IdeaInputForm } from './components/IdeaInputForm';
 import { AnalysisExplainer } from './components/AnalysisExplainer';
@@ -420,11 +419,8 @@ export default function App() {
   }
 
   return (
-    <AppShell activeNav={nav} onNavChange={setNav}>
-      <HeaderBar rightSlot={headerExtras} active={nav} />
-      <main className="flex-1 min-w-0 min-h-0 flex flex-col">
-        <ActiveTabContent />
-      </main>
+    <AppShell activeNav={nav} onNavChange={setNav} headerExtras={headerExtras}>
+      <ActiveTabContent />
     </AppShell>
   );
 }

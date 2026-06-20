@@ -186,6 +186,6 @@
   "delete": "Delete",
   "copy": "Copy",
   "copied": "Copied",
-  "downloadPdf": "Print / save as PDF",
+  "downloadPdf": "Save as PDF",
   "downloadMarkdown": "Download Markdown"
 }

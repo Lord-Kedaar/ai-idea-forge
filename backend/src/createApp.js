@@ -6,7 +6,7 @@ import healthRouter from './routes/health.js';
 import providersRouter from './routes/providers.js';
 import agentsRouter from './routes/agents.js';
 import workflowsRouter from './routes/workflows.js';
-import { createForgeRun, getForgeRun, getForgeRunEvents, listForgeRuns, deleteForgeRun } from './routes/forgeRuns.js';
+import { createForgeRun, getForgeRun, getForgeRunEvents, listForgeRuns, deleteForgeRun, cancelForgeRun } from './routes/forgeRuns.js';
 import { getDecisionMemo } from './routes/artifacts.js';
 import { rateLimitMiddleware, sessionLockMiddleware, getRateLimitInfo } from './middleware/rateLimit.js';
 
@@ -74,6 +74,7 @@ app.post('/api/forge/runs', rateLimitMiddleware, sessionLockMiddleware, createFo
 app.get('/api/rate-limit', (req, res) => {  const info = getRateLimitInfo(req);  res.json({ ...info, hourlyLimit: 10, dailyLimit: 100 });});
 app.get('/api/forge/runs', listForgeRuns);
 app.get('/api/forge/runs/:runId', getForgeRun);
+app.post('/api/forge/runs/:runId/cancel', cancelForgeRun);
 app.delete('/api/forge/runs/:runId', deleteForgeRun);
 app.get('/api/forge/runs/:runId/events', getForgeRunEvents);
 app.get('/api/forge/runs/:runId/artifacts/decision-memo', getDecisionMemo);

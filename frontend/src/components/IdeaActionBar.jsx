@@ -24,7 +24,7 @@ export function IdeaActionBar({
 
   return (
     <div
-      className="shrink-0 border-t border-border-strong bg-background px-6 py-3"
+      className="shrink-0 border-t border-border-strong bg-background px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
       role="region"
       aria-label={t('actionbar.label')}
     >
