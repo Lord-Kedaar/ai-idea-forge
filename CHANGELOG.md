@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Fixed
+- **Limity znakow** — `frontend/src/components/IdeaInputForm.jsx`:
+  - `idea` textarea: `maxLength={5000}` → `maxLength={1000}`
+
+- **Limity znaków** — :
+  -  textarea:  → 
+
 - **Bug A — priorOutputs field mismatch (krytyczny)** — `backend/src/orchestration/runState.js`:
   - `getPriorOutputs()` zwracało `{ agent, content }` ale szablon promptu czytał `o.output`
   - skutek: agenci 2+ w pipeline otrzymywali `undefined` zamiast realnych outputów poprzednich agentów

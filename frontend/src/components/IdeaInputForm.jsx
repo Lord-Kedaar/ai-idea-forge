@@ -34,7 +34,7 @@ export function IdeaInputForm({
             id="idea"
             className="textarea"
             rows={6}
-            maxLength={5000}
+            maxLength={1000}
             placeholder={t('ideaPlaceholder')}
             value={idea}
             onChange={(e) => setIdea(e.target.value)}
