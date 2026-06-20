@@ -247,6 +247,13 @@ export default function App() {
     refreshRuns();
   }
 
+  function handleClearForm() {
+    setIdea('');
+    setContext('');
+    setConstraints('');
+    setExtraInstructions('');
+  }
+
   async function handleDeleteRun(runId) {
     await deleteRun(runId);
     if (currentRun?.runId === runId) handleNewRun();
@@ -303,6 +310,8 @@ export default function App() {
             submitting={submitting}
             submitError={submitError}
             onStart={handleStart}
+            onClear={handleClearForm}
+            activeWorkflow={activeWorkflow}
             disabled={!!currentRun || backendDown}
           />
         </div>

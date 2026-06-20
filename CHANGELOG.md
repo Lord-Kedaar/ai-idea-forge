@@ -3,6 +3,36 @@
 ## [Unreleased]
 
 
+
+### Changed
+- **Dolny actionbar w widoku `Pomysł`** — `frontend/src/components/IdeaInputForm.jsx` + `frontend/src/App.jsx` + `frontend/src/index.css`:
+  - Stary `<button className="btn btn-primary btn-lg w-full">` na dole formularza zastąpiony dedykowanym `.actionbar` (pełna szerokość karty, `min-height: 64px`, `padding: 12px 24px`, `border-top: 1px solid hsl(var(--border-strong))`, `background: hsl(var(--card))`).
+  - Lewa sekcja `.actionbar-info`: ikona `Info` (lucide) + `Wybrano: {{mode}} · {{count}} etapów` z `t('actionbar.selected', { mode, count })`.
+  - Prawa sekcja `.actionbar-buttons`: `Wyczyść formularz` (`btn-secondary btn-sm` + `RotateCcw`, disabled gdy formularz pusty) + `Uruchom analizę →` (`btn-primary` + `ArrowRight`, `min-height: 40px`, `padding: 0 18px`, `font-weight: 600`, nie rozciąga się na pełną szerokość).
+  - Responsive: na ≤640px actionbar stackuje się pionowo (`flex-direction: column`), CTA `flex: 2`, „Wyczyść" `flex: 1`.
+  - Nowy handler `handleClearForm()` w `App.jsx` — zeruje `idea`, `context`, `constraints`, `extraInstructions`. Nie zmienia `workflowType` ani `lengthPref`/`criticismLevel`/`priority` (świadoma decyzja — „Wyczyść formularz" ≠ „Nowa analiza").
+- **Hierarchia borderów** — `frontend/src/index.css`:
+  - Nowe tokeny: dark `--border-strong: 240 3.7% 23%`, light `--border-strong: 240 5.9% 78%`.
+  - Główne granice layoutu (`header.border-b`, `aside.border-r`, `.actionbar`) używają `--border-strong` — lepsza separacja paneli.
+  - Karty i wewnętrzne separatory nadal `--border` — średnie/subtelne.
+  - Selektory `:is(header).border-b` + `:is(aside).border-r` (poprawka względem `header.border-b`, które esbuild traktował jako at-rule).
+
+### Added
+- **Klucze i18n × 3 × 3** — `frontend/src/i18n/{pl,en,de}.json`:
+  - `actionbar.label` (`Pasek akcji` / `Action bar` / `Aktionsleiste`)
+  - `actionbar.selected` (`Wybrano: {{mode}} · {{count}} etapów` / EN / DE)
+  - `actionbar.clear` (`Wyczyść formularz` / `Clear form` / `Formular leeren`)
+
+### Verified
+- `vite build` → `✓ 1598 modules transformed`, `dist 241.41 KB JS + 48.94 KB CSS`, 0 warnings, 0 errors.
+- `jest` → `Tests: 25 passed, 25 total`.
+- `/health` → 200 OK.
+- `dist/assets/*.js` grep `nav.templates|nav.agents|Szablony|Agenci` → 0.
+- `dist/assets/*.js` grep `actionbar.*` → 3 (label/selected/clear).
+- `dist/assets/*.js` grep `Info|ArrowRight|RotateCcw` → 3 (ikony lucide).
+- `dist/assets/*.css` grep `.actionbar` + `.actionbar-info` + `.actionbar-buttons` → 3 klasy.
+- `dist/assets/*.css` grep `--border-strong` → 2 (dark 23%, light 78%).
+- Dev server (5173) serwuje nowe pliki po restarcie z `--force`.
 ### Added
 - **Light mode z działającym theme toggle** — `frontend/src/index.css` + nowy `frontend/src/useTheme.js` + `frontend/src/components/ThemeToggle.jsx`:
   - Tokeny CSS dla `:root[data-theme='light']` (identyczne z OpenDesign — białe tło, ciemny tekst, secondary 95.9%, border 90%).
