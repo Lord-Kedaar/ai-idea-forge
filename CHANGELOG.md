@@ -2,6 +2,60 @@
 
 ## [Unreleased]
 
+
+### Added
+- **Light mode z działającym theme toggle** — `frontend/src/index.css` + nowy `frontend/src/useTheme.js` + `frontend/src/components/ThemeToggle.jsx`:
+  - Tokeny CSS dla `:root[data-theme='light']` (identyczne z OpenDesign — białe tło, ciemny tekst, secondary 95.9%, border 90%).
+  - Hook `useTheme()` ustawia `data-theme` na `<html>`, persystuje w `localStorage('forge-theme')`, fallback do `prefers-color-scheme` tylko przy pierwszej wizycie (po zapisie OS przestaje nadpisywać wybór użytkownika).
+  - `ThemeToggle` w HeaderBar — ikona `Moon`/`Sun` z lucide, `aria-pressed`, `aria-label='Przełącz motyw'`.
+  - Body transition 200ms dla `background-color` i `color` przy zmianie motywu.
+- **Sidebar brand z logo SVG** — `frontend/src/components/SidebarNav.jsx`:
+  - Dwa `<img>` (`icon_dark_theme.svg`, `icon_light_theme.svg`) z atrybutami `data-theme-icon='dark'/'light'`. CSS przełącza widoczność przez `:root[data-theme='light']` — użytkownik zawsze widzi kontrastujące logo.
+  - Tytuł `Idea Forge` + podtytuł `AI walidacja pomysłów` (klucz `brandSub`).
+  - Ikony `icon_dark_theme.svg` / `icon_light_theme.svg` / `favicon.png` skopiowane z `/home/radek/ai-idea-forge/icons/` do `frontend/public/icons/` — wcześniej Vite zwracał SPA fallback (`text/html` mimo HTTP 200) zamiast assetu.
+- **Sidebar footer (OD parity)** — `frontend/src/components/SidebarNav.jsx`:
+  - Pozycje `Ustawienia` + `Pomoc` w sekcji footer (nie w głównej nawigacji).
+  - Separator `separator`, linki `Prywatność` + `Opis projektu` + copyright `© 2026 Radosław Pleskot`.
+- **Breadcrumb w topbarze** — `frontend/src/components/HeaderBar.jsx`:
+  - Wzorzec `Warsztat / <aktywna zakładka>` — `bc.workspace` + `bc.idea/analysis/memo/history/settings/help`.
+  - Śledzi stan `nav` przekazany przez nowy prop `active={nav}`.
+- **User chip w topbarze** — `frontend/src/components/HeaderBar.jsx`:
+  - Avatar `RP` + imię `Radosław` ukryte < sm, separator pionowy przed chipem.
+- **`prefers-reduced-motion`** — `frontend/src/index.css`:
+  - Globalny `@media (prefers-reduced-motion: reduce)` obniża `animation-duration` / `transition-duration` / `scroll-behavior` do `0.01ms`.
+- **Klucze i18n × 14 × 3 języki** — `frontend/src/i18n/{pl,en,de}.json`:
+  - `brandSub`, `nav.workspace`, `nav.library`, `bc.workspace`, `bc.idea`, `bc.analysis`, `bc.memo`, `bc.history`, `bc.settings`, `bc.help`, `footer.privacy`, `footer.about`, `footer.copyright`, `themeToggleLabel`.
+
+### Changed
+- **Historia usunięta z widoku `Pomysł`** — `frontend/src/App.jsx`:
+  - `IdeaView` renderuje wyłącznie `IdeaInputForm` + `AnalysisExplainer` + (opcjonalnie) `BackendStatus`. `RunsHistoryPanel` pozostaje wyłącznie w `HistoryView`. Warunek `runs.length > 0 && !isMobile` wycofany, zmienna `isMobile` usunięta.
+- **Sidebar podzielony na grupy `Warsztat` i `Biblioteka`** — `frontend/src/components/SidebarNav.jsx`:
+  - `Warsztat`: `Pomysł`, `Analiza`, `Decision Memo`.
+  - `Biblioteka`: `Historia`.
+  - Labels z kluczy `nav.workspace` / `nav.library`.
+- **Wzmocnione transitions** — `frontend/src/index.css`:
+  - `.nav-item`: hover dodaje `translate-x-0.5` + `bg-accent`.
+  - `.workflow-card`: hover dodaje `translate-y-px` + `border-foreground/20`.
+  - `.theme-toggle`, `.sidebar-link`, `.btn`: `transition-all 150ms` z hover/focus-visible ring.
+
+### Verified
+- `vite build` → 1598 modules transformed, dist 239 KB JS + 47.7 KB CSS, 0 errors.
+- `jest` → 25/25 backend tests pass (workflowRegistry, agentRegistry, runState, providers, …).
+- `/health` → 200 OK.
+- `/api/workflows` → 6 workflows (develop_idea, critique_idea, premortem, compare_variants, decision_memo, full_analysis) z poprawnymi agentami.
+- `POST /api/forge/runs` (decision_memo, fake provider) → 200 + `runId`.
+- `dist/assets/*.js` grep `nav.templates`/`nav.agents`/`Szablony`/`Agenci` → 0 (Radosław celowo usunął te zakładki).
+- `dist/assets/*.js` grep `nav.workspace`/`brandSub`/`footer.privacy`/`themeToggleLabel`/`bc.*` → 9 wystąpień.
+- `dist/assets/*.css` grep `data-theme=light` → 1 (light theme tokeny).
+- `dist/assets/*.css` grep `prefers-reduced-motion` → 1.
+- `dist/assets/*.css` grep `[data-theme-icon=dark]` + `[data-theme-icon=light]` + light overrides → 4 selektory.
+- `GET /icons/icon_dark_theme.svg` → `200 Content-Length: 587` (real bytes).
+
+### Risks
+- camofox-browser na Macu zwrócił HTTP 500 z `/tabs` — screenshoty wizualne pominięte (poza scope, znany problem ze skill).
+- `frontend/src/i18n/*.js` (pl/en/de) to martwe duplikaty `.json` — nie są importowane przez `I18nProvider.jsx`. Poza scope tej sesji.
+- Mobile drawer (slide-in + ESC + scrim) — OD ma, React ma tylko `hidden md:flex`. Pominięte jako duży refaktor poza minimalnym zakresem naprawy.
+- Topbar "Skróty klawiszowe" button (placeholder w OD) — pominięty, brak zdefiniowanej funkcji.
 ### Fixed
 - **Layout zakładek — tylko jeden aktywny widok w głównym panelu** — `frontend/src/App.jsx`:
   - Poprzednio widoki `AnalysisProgress`, `DecisionMemoPanel`, `RunsHistoryPanel` (top-5) były renderowane jako rodzeństwo `<main>` lub pod `IdeaInputForm`, niezależnie od wybranej zakładki w sidebarze. Wynik: po kliknięciu "Pomysł" pod formularzem pojawiały się sekcje "Analiza", "Decision Memo", "Historia analiz" w jednym flow.

@@ -255,7 +255,6 @@ export default function App() {
 
   const activeWorkflow = workflows.find((w) => w.id === workflowType);
   const canStart = idea.trim().length > 0 && !submitting && !backendDown && !currentRun;
-  const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
 
   const headerExtras = (
     <div className="flex items-center gap-3">
@@ -311,9 +310,6 @@ export default function App() {
         <div className="space-y-6 min-w-0">
           {backendDown && <BackendStatus down={backendDown} error={backendError} onRetry={refreshBootstrap} />}
           <AnalysisExplainer workflow={activeWorkflow} />
-          {runs.length > 0 && !isMobile && (
-            <RunsHistoryPanel runs={runs.slice(0, 5)} onOpen={openRun} onDelete={handleDeleteRun} onRefresh={refreshRuns} />
-          )}
         </div>
       </div>
     );
@@ -377,7 +373,7 @@ export default function App() {
 
   return (
     <AppShell activeNav={nav} onNavChange={setNav}>
-      <HeaderBar rightSlot={headerExtras} />
+      <HeaderBar rightSlot={headerExtras} active={nav} />
       <main className="flex-1 min-w-0 min-h-0 overflow-y-auto">
         <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
           <ActiveTabContent />

@@ -1,0 +1,275 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * AI Idea Forge — monochrome shadcn-style theme.
+ * Tokens live as HSL channels so Tailwind utilities (hsl(var(--accent))) work.
+ * Theme is controlled by `data-theme="dark"|"light"` on <html>, set by useTheme hook
+ * and persisted in localStorage as `forge-theme`.
+ */
+
+@layer base {
+  :root {
+    /* Dark theme — default. */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 6% 6.5%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 6% 6.5%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 10% 3.9%;
+    --secondary: 240 4% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 4% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 4% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 15.9%;
+    --input: 240 4% 15.9%;
+    --ring: 240 5% 83%;
+    --radius: 0.5rem;
+    color-scheme: dark;
+  }
+
+  /* Light theme — toggled by [data-theme="light"] on <html>. Mirrors OpenDesign palette. */
+  :root[data-theme='light'] {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 4.9% 83.9%;
+    color-scheme: light;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+
+  /* Reduced motion — disable animations and transitions for users who request it. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border bg-card text-card-foreground;
+  }
+  .card-header {
+    @apply flex flex-col gap-1.5 p-6 pb-3;
+  }
+  .card-body {
+    @apply p-6 pt-0;
+  }
+  .card-footer {
+    @apply flex items-center p-6 pt-0;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium
+           ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2
+           focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
+           cursor-pointer;
+    letter-spacing: 0.01em;
+  }
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+  }
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border;
+  }
+  .btn-ghost {
+    @apply hover:bg-accent hover:text-accent-foreground;
+  }
+  .btn-outline {
+    @apply border border-input bg-background hover:bg-accent hover:text-accent-foreground;
+  }
+  .btn-destructive {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
+  }
+  .btn-sm {
+    @apply h-8 rounded-md px-3 text-xs;
+  }
+  .btn-lg {
+    @apply h-11 rounded-md px-6 text-base;
+  }
+  .btn-icon {
+    @apply h-9 w-9;
+  }
+
+  .input,
+  .textarea,
+  .select {
+    @apply flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm
+           placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2
+           focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background
+           disabled:cursor-not-allowed disabled:opacity-50 transition-colors;
+  }
+  .textarea {
+    @apply min-h-[80px] resize-y leading-relaxed;
+  }
+  .form-label {
+    @apply text-sm font-medium leading-none text-foreground mb-2 block;
+  }
+  .form-help {
+    @apply text-xs text-muted-foreground mt-1.5;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-md border border-border bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground;
+  }
+  .badge-status {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-status[data-state='running'] { @apply text-foreground; }
+  .badge-status[data-state='completed'] { @apply text-foreground; }
+  .badge-status[data-state='failed'] { @apply border-destructive/40 text-destructive; }
+  .badge-status[data-state='cancelled'] { @apply text-muted-foreground; }
+
+  .workflow-card {
+    @apply relative flex flex-col gap-2 rounded-lg border border-border bg-card p-4 text-left
+           transition-all duration-150 hover:bg-accent/40 hover:border-foreground/20 hover:-translate-y-px
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+           focus-visible:ring-offset-background cursor-pointer;
+  }
+  .workflow-card[aria-pressed='true'] {
+    @apply border-foreground/40 bg-accent ring-1 ring-foreground/20;
+  }
+
+  .separator {
+    @apply h-px w-full bg-border;
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded-md bg-secondary;
+  }
+
+  /* Sidebar nav — OpenDesign parity: hover, focus-visible, active state. */
+  .nav-item {
+    @apply flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground
+           transition-all duration-150 hover:bg-accent hover:text-foreground hover:translate-x-0.5
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer;
+  }
+  .nav-item[data-active='true'] {
+    @apply bg-accent text-foreground;
+  }
+
+  /* Language switch — pill group, OD parity. */
+  .lang-btn {
+    @apply inline-flex h-7 min-w-[2rem] items-center justify-center rounded-md px-2 text-xs font-semibold
+           text-muted-foreground transition-colors hover:bg-accent hover:text-foreground
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer;
+  }
+  .lang-btn[aria-pressed='true'] {
+    @apply bg-secondary text-foreground border border-border;
+  }
+
+  /* Theme toggle — OD icon button parity. */
+  .theme-toggle {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background
+           text-muted-foreground transition-all duration-150
+           hover:bg-accent hover:text-foreground hover:border-foreground/30
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer;
+  }
+
+  /* Sidebar brand mark — sized to OD reference (24x24). */
+  .brand-mark {
+    @apply h-6 w-6 shrink-0;
+  }
+  /* Show only the icon matching the current theme — mirrors OD behaviour. */
+  [data-theme-icon='dark'] { display: block; }
+  [data-theme-icon='light'] { display: none; }
+  :root[data-theme='light'] [data-theme-icon='dark'] { display: none; }
+  :root[data-theme='light'] [data-theme-icon='light'] { display: block; }
+
+  /* Sidebar footer link — smaller, dimmer, OD parity. */
+  .sidebar-link {
+    @apply block px-3 py-1.5 text-xs text-muted-foreground rounded-md
+           transition-colors hover:bg-accent hover:text-foreground
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer;
+  }
+
+  /* Sidebar group label — uppercase, small. */
+  .sidebar-group-label {
+    @apply px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70;
+  }
+
+  .memo-preview {
+    @apply prose prose-invert prose-sm max-w-none rounded-md border border-border bg-background/40 p-4
+           prose-headings:text-foreground prose-headings:font-semibold prose-headings:tracking-tight
+           prose-h1:text-xl prose-h2:text-base prose-h2:mt-5 prose-h2:mb-2 prose-h2:border-b prose-h2:border-border
+           prose-h2:pb-1 prose-h3:text-sm prose-h3:mt-3 prose-h3:mb-1
+           prose-p:my-2 prose-p:leading-relaxed prose-p:text-foreground/90
+           prose-li:my-1 prose-li:text-foreground/90
+           prose-strong:text-foreground prose-strong:font-semibold
+           prose-code:rounded prose-code:bg-secondary prose-code:px-1.5 prose-code:py-0.5 prose-code:text-xs
+           prose-code:before:content-none prose-code:after:content-none;
+  }
+
+  /* Light theme: tighten prose colors so markdown stays readable on white background. */
+  :root[data-theme='light'] .memo-preview {
+    @apply prose-headings:text-foreground prose-p:text-foreground/90
+           prose-li:text-foreground/90 prose-strong:text-foreground;
+    color: hsl(var(--foreground));
+  }
+
+  .status-dot {
+    @apply inline-block h-2 w-2 rounded-full bg-muted-foreground;
+  }
+  .status-dot[data-state='running'] { @apply bg-foreground animate-pulse; }
+  .status-dot[data-state='completed'] { @apply bg-foreground; }
+  .status-dot[data-state='failed'] { @apply bg-destructive; }
+
+  .scroll-area {
+    @apply overflow-y-auto;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+}
