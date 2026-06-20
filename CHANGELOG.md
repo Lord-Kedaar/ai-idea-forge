@@ -4,6 +4,41 @@
 
 
 
+
+### Fixed
+- **Actionbar poza formularzem** — `frontend/src/components/IdeaActionBar.jsx` (nowy) + `frontend/src/App.jsx` + `frontend/src/components/IdeaInputForm.jsx`:
+  - Poprzednio `<div className="actionbar">` był renderowany wewnątrz `<div className="card-body">` `IdeaInputForm` — ograniczony do szerokości lewej kolumny gridu, wyglądał jak kolejny element formularza.
+  - Teraz: wydzielony komponent `IdeaActionBar` z `shrink-0 border-t border-border bg-background` (anchor bottom, full-width), wewnętrzny wrapper `mx-auto max-w-[1400px] flex items-center justify-between gap-4 px-4 py-3 md:px-6` (centrowanie, max-width 1400 spójny z resztą layoutu).
+  - `IdeaView` zmieniony z `<div className="grid gap-6 lg:grid-cols-[...]">` na `<div className="flex h-full min-h-0 flex-col">`:
+    - Wewnętrzny `<div className="grid flex-1 min-h-0 grid-cols-1 gap-6 overflow-y-auto px-4 py-6 md:px-6 md:py-8 lg:grid-cols-[...]">` — content grid scrolluje (`flex-1 + overflow-y-auto`).
+    - **Sibling**: `<IdeaActionBar selectedWorkflow={activeWorkflow} canStart={canStart} canClear={...} isStarting={submitting} submitError={submitError} onClear={handleClearForm} onStart={handleStart} />` — pasek renderowany poza gridem, na dole `IdeaView`.
+  - `<main>` zmieniony z `flex-1 min-w-0 min-h-0 overflow-y-auto` (z wrapperem `mx-auto max-w-[1400px]`) na `flex-1 min-w-0 min-h-0 flex flex-col` (bez overflow) — każdy widok (`IdeaView`, `AnalysisView`, `DecisionMemoView`, `HistoryView`, settings, help) sam zarządza przewijaniem wewnętrznym przez wrapper `flex-1 min-h-0 overflow-y-auto` + `mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8`.
+- **Duplikat `Idea / Problem / Decyzja` usunięty** — `frontend/src/components/IdeaInputForm.jsx`:
+  - Usunięty `<p className="text-sm text-muted-foreground">{t('ideaLabel')}</p>` z `card-header` (subtitle).
+  - Zachowany `<label htmlFor="idea">{t('ideaLabel')}</label>` w `card-body` (accessibility label dla textarea).
+  - Usunięte importy `Info, ArrowRight, RotateCcw` z `IdeaInputForm.jsx` (przeniesione do `IdeaActionBar`).
+  - Usunięte props `onClear, activeWorkflow` + zmienne `selectedAgentsCount, canClear, handleClear`.
+
+### Removed
+- **Klasy `.actionbar*` w `frontend/src/index.css`** — martwy kod po migracji do Tailwind utility w `IdeaActionBar`. Usunięte: `.actionbar`, `.actionbar-info`, `.actionbar-info > span`, `.actionbar-buttons`, `.actionbar-buttons .btn-primary`, `@media (max-width: 640px) { .actionbar* }`. Selektor `.actionbar` usunięty z listy border hierarchy (`:is(header).border-b, :is(aside).border-r` zostają z `--border-strong`).
+
+### Verified
+- `vite build` → `✓ 1599 modules transformed`, `dist 242.82 KB JS + 47.81 KB CSS`, 0 warnings, 0 errors (1598 → +1 = IdeaActionBar.jsx).
+- `jest` → `Tests: 25 passed, 25 total` (5 suites).
+- `/health` → 200 OK · `/api/workflows` → 6 workflows.
+- `dist/assets/*.css` grep `.actionbar*` → **0** (martwy kod wycięty).
+- `dist/assets/*.css` grep `--border-strong` → 2 (dark 240 3.7% 23%, light 240 5.9% 78%).
+- `dist/assets/*.js` grep `IdeaActionBar` → 1.
+- `dist/assets/*.js` grep `actionbar.label|actionbar.selected|actionbar.clear` → 3.
+- `dist/assets/*.js` grep `Info|ArrowRight|RotateCcw` → 3 (ikony lucide w `IdeaActionBar`).
+- `dist/assets/*.js` grep `nav.templates|nav.agents|Szablony|Agenci` → 0.
+- `dist/assets/*.js` grep `RunsHistoryPanel` (powinien być tylko w `HistoryView`) → ≥ 1 (renderowany w `HistoryView`, nie w `IdeaView`).
+- Dev server (5173) serwuje nowe pliki po restarcie z `--force`.
+
+### Risks
+- `<main>` bez overflow wymusza wrapper `flex-1 overflow-y-auto` w każdym widoku — weryfikacja: `AnalysisView`, `DecisionMemoView`, `HistoryView`, `settings`, `help` wszystkie mają wrapper, `IdeaView` ma go w grid.
+- Mobile (≤640px): Tailwind utility nie definiuje stackowania akcji — kompaktowe `btn-sm` + `h-10 px-5` wystarczają na małych ekranach, padding `px-4`. Poprzedni CSS miał explicit `@media flex-direction: column` — uprościłem świadomie.
+- `submitError` w `IdeaInputForm` ustawiony na `null` — renderuje się teraz w `IdeaActionBar` (pod paskiem), zgodnie z układem OD.
 ### Changed
 - **Dolny actionbar w widoku `Pomysł`** — `frontend/src/components/IdeaInputForm.jsx` + `frontend/src/App.jsx` + `frontend/src/index.css`:
   - Stary `<button className="btn btn-primary btn-lg w-full">` na dole formularza zastąpiony dedykowanym `.actionbar` (pełna szerokość karty, `min-height: 64px`, `padding: 12px 24px`, `border-top: 1px solid hsl(var(--border-strong))`, `background: hsl(var(--card))`).

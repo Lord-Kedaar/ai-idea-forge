@@ -23,6 +23,7 @@ import { DecisionMemoPanel } from './components/DecisionMemoPanel';
 import { RunsHistoryPanel } from './components/RunsHistoryPanel';
 import { BackendStatus } from './components/BackendStatus';
 import { PlaceholderView } from './components/PlaceholderView';
+import { IdeaActionBar } from './components/IdeaActionBar';
 
 const AGENT_IDS = ['generator', 'skeptic', 'pragmatist', 'redteam', 'editor', 'decider'];
 const FINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
@@ -286,56 +287,68 @@ export default function App() {
 
   function IdeaView() {
     return (
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <div className="space-y-6 min-w-0">
-          <IdeaInputForm
-            idea={idea}
-            setIdea={setIdea}
-            workflowType={workflowType}
-            setWorkflowType={setWorkflowType}
-            workflows={workflows}
-            context={context}
-            setContext={setContext}
-            constraints={constraints}
-            setConstraints={setConstraints}
-            extraInstructions={extraInstructions}
-            setExtraInstructions={setExtraInstructions}
-            lengthPref={lengthPref}
-            setLengthPref={setLengthPref}
-            criticismLevel={criticismLevel}
-            setCriticismLevel={setCriticismLevel}
-            priority={priority}
-            setPriority={setPriority}
-            canStart={canStart}
-            submitting={submitting}
-            submitError={submitError}
-            onStart={handleStart}
-            onClear={handleClearForm}
-            activeWorkflow={activeWorkflow}
-            disabled={!!currentRun || backendDown}
-          />
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="grid flex-1 min-h-0 grid-cols-1 gap-6 overflow-y-auto px-4 py-6 md:px-6 md:py-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <div className="space-y-6 min-w-0">
+            <IdeaInputForm
+              idea={idea}
+              setIdea={setIdea}
+              workflowType={workflowType}
+              setWorkflowType={setWorkflowType}
+              workflows={workflows}
+              context={context}
+              setContext={setContext}
+              constraints={constraints}
+              setConstraints={setConstraints}
+              extraInstructions={extraInstructions}
+              setExtraInstructions={setExtraInstructions}
+              lengthPref={lengthPref}
+              setLengthPref={setLengthPref}
+              criticismLevel={criticismLevel}
+              setCriticismLevel={setCriticismLevel}
+              priority={priority}
+              setPriority={setPriority}
+              canStart={canStart}
+              submitting={submitting}
+              submitError={null}
+              onStart={handleStart}
+              disabled={!!currentRun || backendDown}
+            />
+          </div>
+
+          <div className="space-y-6 min-w-0">
+            {backendDown && <BackendStatus down={backendDown} error={backendError} onRetry={refreshBootstrap} />}
+            <AnalysisExplainer workflow={activeWorkflow} />
+          </div>
         </div>
 
-        <div className="space-y-6 min-w-0">
-          {backendDown && <BackendStatus down={backendDown} error={backendError} onRetry={refreshBootstrap} />}
-          <AnalysisExplainer workflow={activeWorkflow} />
-        </div>
+        <IdeaActionBar
+          selectedWorkflow={activeWorkflow}
+          canStart={canStart}
+          canClear={!currentRun && !backendDown && (idea.trim() || context.trim() || constraints.trim() || extraInstructions.trim())}
+          isStarting={submitting}
+          submitError={submitError}
+          onClear={handleClearForm}
+          onStart={handleStart}
+        />
       </div>
     );
   }
 
   function AnalysisView() {
     return (
-      <div className="space-y-6">
-        {backendDown && <BackendStatus down={backendDown} error={backendError} onRetry={refreshBootstrap} />}
-        {currentRun ? (
-          <AnalysisProgress run={currentRun} onStop={handleStop} stopping={stopping} />
-        ) : (
-          <div className="rounded-md border border-dashed border-border bg-background/40 p-10 text-center text-sm text-muted-foreground">
-            {t('memoWaiting')}
-          </div>
-        )}
-        <AnalysisExplainer workflow={activeWorkflow} />
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-6 md:py-8">
+          {backendDown && <BackendStatus down={backendDown} error={backendError} onRetry={refreshBootstrap} />}
+          {currentRun ? (
+            <AnalysisProgress run={currentRun} onStop={handleStop} stopping={stopping} />
+          ) : (
+            <div className="rounded-md border border-dashed border-border bg-background/40 p-10 text-center text-sm text-muted-foreground">
+              {t('memoWaiting')}
+            </div>
+          )}
+          <AnalysisExplainer workflow={activeWorkflow} />
+        </div>
       </div>
     );
   }
@@ -343,22 +356,36 @@ export default function App() {
   function DecisionMemoView() {
     if (!currentRun) {
       return (
-        <div className="rounded-md border border-dashed border-border bg-background/40 p-10 text-center text-sm text-muted-foreground">
-          {t('memoWaiting')}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
+            <div className="rounded-md border border-dashed border-border bg-background/40 p-10 text-center text-sm text-muted-foreground">
+              {t('memoWaiting')}
+            </div>
+          </div>
         </div>
       );
     }
-    return <DecisionMemoPanel run={currentRun} memo={memo} memoError={memoError} />;
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
+          <DecisionMemoPanel run={currentRun} memo={memo} memoError={memoError} />
+        </div>
+      </div>
+    );
   }
 
   function HistoryView() {
     return (
-      <RunsHistoryPanel
-        runs={runs}
-        onOpen={openRun}
-        onDelete={handleDeleteRun}
-        onRefresh={refreshRuns}
-      />
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
+          <RunsHistoryPanel
+            runs={runs}
+            onOpen={openRun}
+            onDelete={handleDeleteRun}
+            onRefresh={refreshRuns}
+          />
+        </div>
+      </div>
     );
   }
 
@@ -371,9 +398,21 @@ export default function App() {
       case 'history':
         return <HistoryView />;
       case 'settings':
-        return <PlaceholderView kind="settings" />;
+        return (
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
+              <PlaceholderView kind="settings" />
+            </div>
+          </div>
+        );
       case 'help':
-        return <PlaceholderView kind="help" />;
+        return (
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
+              <PlaceholderView kind="help" />
+            </div>
+          </div>
+        );
       case 'idea':
       default:
         return <IdeaView />;
@@ -383,10 +422,8 @@ export default function App() {
   return (
     <AppShell activeNav={nav} onNavChange={setNav}>
       <HeaderBar rightSlot={headerExtras} active={nav} />
-      <main className="flex-1 min-w-0 min-h-0 overflow-y-auto">
-        <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
-          <ActiveTabContent />
-        </div>
+      <main className="flex-1 min-w-0 min-h-0 flex flex-col">
+        <ActiveTabContent />
       </main>
     </AppShell>
   );

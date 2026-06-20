@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Loader2, Info, ArrowRight, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
 import { WorkflowSelector } from './WorkflowSelector';
 import { cn } from '../utils';
@@ -14,25 +14,17 @@ export function IdeaInputForm({
   criticismLevel, setCriticismLevel,
   priority, setPriority,
   canStart, submitting, submitError,
-  onStart, onClear, disabled,
-  activeWorkflow,
+  onStart, disabled,
 }) {
   const { t } = useI18n();
   const [extrasOpen, setExtrasOpen] = useState(false);
   const ideaEmpty = !idea.trim();
   const isStarting = submitting;
-  const selectedAgentsCount = activeWorkflow?.agents?.length ?? 0;
-  const canClear = !disabled && (idea.trim() || context.trim() || constraints.trim() || extraInstructions.trim());
-
-  function handleClear() {
-    if (typeof onClear === 'function') onClear();
-  }
 
   return (
     <div className="card">
       <div className="card-header">
         <h2 className="text-lg font-semibold tracking-tight text-foreground">{t('newRun')}</h2>
-        <p className="text-sm text-muted-foreground">{t('ideaLabel')}</p>
       </div>
 
       <div className="card-body space-y-5">
@@ -129,41 +121,6 @@ export function IdeaInputForm({
             {submitError}
           </div>
         )}
-
-        <div className="actionbar" role="region" aria-label={t('actionbar.label')}>
-          <div className="actionbar-info">
-            <Info className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span className="truncate">
-              {t('actionbar.selected', {
-                mode: activeWorkflow ? t(`workflow.${activeWorkflow.id}.name`) : '—',
-                count: selectedAgentsCount,
-              })}
-            </span>
-          </div>
-          <div className="actionbar-buttons">
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={handleClear}
-              disabled={!canClear}
-              aria-label={t('actionbar.clear')}
-            >
-              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{t('actionbar.clear')}</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={onStart}
-              disabled={!canStart}
-              aria-label={t('startButton')}
-            >
-              {isStarting && <Loader2 className="h-4 w-4 animate-spin" />}
-              <span>{isStarting ? t('startingButton') : t('startButton')}</span>
-              {!isStarting && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
