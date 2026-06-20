@@ -24,18 +24,18 @@ export function IdeaActionBar({
 
   return (
     <div
-      className="shrink-0 border-t border-border bg-background"
+      className="shrink-0 border-t border-border-strong bg-background px-6 py-3"
       role="region"
       aria-label={t('actionbar.label')}
     >
-      <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 md:px-6">
+      <div className="flex w-full items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
           <Info className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="truncate">
             {t('actionbar.selected', { mode: modeName, count: agentsCount })}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center justify-end gap-2">
           <button
             type="button"
             className="btn btn-secondary btn-sm"
@@ -60,7 +60,7 @@ export function IdeaActionBar({
         </div>
       </div>
       {submitError && (
-        <div className="mx-auto -mt-2 max-w-[1400px] px-4 pb-3 md:px-6">
+        <div className="-mt-2 px-6 pb-3">
           <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {submitError}
           </div>
