@@ -10,7 +10,7 @@ export default {
   "ideaLabel": "Idea / Problem / Decyzja",
   "ideaPlaceholder": "Opisz pomysł, decyzję albo problem, który chcesz przetestować...",
   "ideaRequiredError": "Wpisz ideę, problem albo decyzję, aby rozpocząć.",
-  "ideaCounter": "{count} / 5000",
+  "ideaCounter": "{count} / 1000",
   "workflowMode": "Tryb pracy",
   "contextLabel": "Kontekst",
   "contextPlaceholder": "Dodaj tło sytuacji, odbiorców, cel, aktualny etap, znane fakty...",
@@ -123,5 +123,5 @@ export default {
   "section_Następny_krok": "Następny krok",
   "quotaRemaining": "Zostało Ci {n} / {max} uruchomień dziś",
   "quotaExhausted": "Osiągnięto dzienny limit uruchomień ({max}). Spróbuj ponownie jutro.",
-  "maxLength": "Maksymalnie 5000 znaków."
+  "maxLength": "Maksymalnie 1000 znaków."
 };

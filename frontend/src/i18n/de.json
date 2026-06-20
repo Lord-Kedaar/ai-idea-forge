@@ -48,7 +48,7 @@
   "ideaLabel": "Idee / Problem / Entscheidung",
   "ideaPlaceholder": "Beschreibe die Idee, Entscheidung oder das Problem, das du testen willst...",
   "ideaRequiredError": "Idee, Problem oder Entscheidung eingeben, um zu starten.",
-  "ideaCounter": "{{count}} / 5000",
+  "ideaCounter": "{{count}} / 1000",
   "workflowMode": "Arbeitsmodus",
   "contextLabel": "Kontext",
   "contextPlaceholder": "Hintergrund, Zielgruppe, Ziel, aktueller Stand, bekannte Fakten...",

@@ -10,7 +10,7 @@ export default {
   "ideaLabel": "Idee / Problem / Entscheidung",
   "ideaPlaceholder": "Beschreibe eine Idee, Entscheidung oder Problem, das du testen möchtest...",
   "ideaRequiredError": "Gib eine Idee, ein Problem oder eine Entscheidung ein, um zu starten.",
-  "ideaCounter": "{count} / 5000",
+  "ideaCounter": "{count} / 1000",
   "workflowMode": "Arbeitsmodus",
   "contextLabel": "Kontext",
   "contextPlaceholder": "Hintergrund: Zielgruppe, Ziel, aktueller Stand, bekannte Fakten...",
@@ -123,5 +123,5 @@ export default {
   "section_Następny_krok": "Nächster Schritt",
   "quotaRemaining": "Du hast noch {n} / {max} Runs heute",
   "quotaExhausted": "Tägliches Run-Limit erreicht ({max}). Versuche es morgen erneut.",
-  "maxLength": "Maximal 5000 Zeichen."
+  "maxLength": "Maximal 1000 Zeichen."
 };
