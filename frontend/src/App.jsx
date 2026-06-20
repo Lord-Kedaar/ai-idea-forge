@@ -1,114 +1,106 @@
-/**
- * AI Idea Forge — Main App
- *
- * Layout:
- *   Header (z diagnostyką backendu)
- *   Two-column (left: form, right: product explanation + run progress)
- *   Secondary section: "Moje runy"
- *
- * Produkt ma być widoczny od razu:
- *   - Panel "Jak działa analiza" — 6 agentów
- *   - Placeholder "Decision Memo" — szablon artefaktu docelowego
- *   - Diagnostyka backendu gdy down
- */
-
 import { useEffect, useMemo, useRef, useState } from 'react';
-import './theme.css';
+import { Plus } from 'lucide-react';
+
 import {
-  getHealth, getProviders, getAgents, getWorkflows,
-  createRun, getRun, getDecisionMemo, getRunsList,
+  cancelRun,
+  createRun,
+  deleteRun,
+  getDecisionMemo,
+  getRun,
+  getRunsList,
+  getWorkflows,
   subscribeRunWithFallback,
+  getHealth,
 } from './api.js';
-import { renderMarkdown } from './markdown.js';
+
 import { useI18n } from './i18n/I18nProvider';
+import { HeaderBar } from './components/HeaderBar';
+import { AppShell } from './components/AppShell';
+import { IdeaInputForm } from './components/IdeaInputForm';
+import { AnalysisExplainer } from './components/AnalysisExplainer';
+import { AnalysisProgress } from './components/AnalysisProgress';
+import { DecisionMemoPanel } from './components/DecisionMemoPanel';
+import { RunsHistoryPanel } from './components/RunsHistoryPanel';
+import { BackendStatus } from './components/BackendStatus';
+import { PlaceholderView } from './components/PlaceholderView';
 
-const AGENTS = [
-  { id: 'generator', name: 'Generator', description: 'Rozwija pomysł i proponuje warianty.' },
-  { id: 'skeptic', name: 'Sceptyk', description: 'Szuka słabych punktów i ukrytych założeń.' },
-  { id: 'pragmatist', name: 'Pragmatyk', description: 'Sprawdza wykonalność i minimalny eksperyment.' },
-  { id: 'redteam', name: 'Red Team', description: 'Robi pre-mortem i identyfikuje ryzyka.' },
-  { id: 'editor', name: 'Redaktor', description: 'Porządkuje materiał i usuwa powtórzenia.' },
-  { id: 'decider', name: 'Decydent', description: 'Formułuje rekomendację, status i następny krok.' },
-];
+const AGENT_IDS = ['generator', 'skeptic', 'pragmatist', 'redteam', 'editor', 'decider'];
+const FINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
 
-const MEMO_SECTIONS = [
-  'Problem', 'Propozycja', 'Kontekst', 'Fakty', 'Założenia',
-  'Argumenty za', 'Argumenty przeciw', 'Ukryte ryzyka', 'Pytania otwarte',
-  'Alternatywy', 'Minimalny eksperyment', 'Rekomendacja', 'Status', 'Następny krok',
-];
+function nowIso() {
+  return new Date().toISOString();
+}
 
-// ==================== MAIN APP ====================
+function normalizeRun(run, fallback = {}) {
+  if (!run) return null;
+  const stages = run.stages?.length
+    ? run.stages
+    : (run.agents?.length ? run.agents : AGENT_IDS).map((agent) => ({ agent, status: 'pending' }));
+
+  return {
+    ...fallback,
+    ...run,
+    stages,
+    status: run.status || fallback.status || 'pending',
+    createdAt: run.createdAt || fallback.createdAt || nowIso(),
+    startedAt: run.startedAt || fallback.startedAt || run.createdAt || fallback.createdAt || nowIso(),
+  };
+}
+
+function applyEvent(prev, type, payload = {}) {
+  if (!prev) return prev;
+  const next = normalizeRun({ ...prev, ...payload }, prev);
+
+  if (type === 'run_started') next.status = 'running';
+  if (type === 'run_completed') next.status = 'completed';
+  if (type === 'run_failed') {
+    next.status = 'failed';
+    next.error = payload.error;
+  }
+  if (type === 'run_cancelled') next.status = 'cancelled';
+
+  if (['agent_started', 'agent_completed', 'agent_failed'].includes(type)) {
+    const agentId = payload.agent || payload.stage;
+    next.stages = (next.stages || []).map((stage) => {
+      if (stage.agent !== agentId) return stage;
+      if (type === 'agent_started') return { ...stage, status: 'running', startedAt: payload.at || nowIso() };
+      if (type === 'agent_completed')
+        return { ...stage, status: 'completed', output: payload.output || stage.output, completedAt: payload.at || nowIso() };
+      return { ...stage, status: 'failed', error: payload.error, completedAt: payload.at || nowIso() };
+    });
+    if (type === 'agent_started') next.currentAgent = agentId;
+    if (type !== 'agent_started') next.currentAgent = null;
+  }
+
+  return next;
+}
 
 export default function App() {
+  const { t, lang } = useI18n();
+  const [nav, setNav] = useState('idea');
+
   const [health, setHealth] = useState({ status: 'unknown' });
-  const { t, lang, setLang } = useI18n();
   const [backendDown, setBackendDown] = useState(false);
   const [backendError, setBackendError] = useState(null);
-  const [uiLang, setUiLang] = useState('pl');
-  const [providers, setProviders] = useState(null);
-  const [agents, setAgents] = useState([]);
   const [workflows, setWorkflows] = useState([]);
+  const [runs, setRuns] = useState([]);
 
-  // Form state
   const [idea, setIdea] = useState('');
   const [workflowType, setWorkflowType] = useState('decision_memo');
   const [context, setContext] = useState('');
   const [constraints, setConstraints] = useState('');
-  const [extraOptionsOpen, setExtraOptionsOpen] = useState(false);
-  const [lengthPref, setLengthPref] = useState('Średnia');
-  const [criticismLevel, setCriticismLevel] = useState('Średni');
-  const [priority, setPriority] = useState('Balans');
   const [extraInstructions, setExtraInstructions] = useState('');
+  const [lengthPref, setLengthPref] = useState('medium');
+  const [criticismLevel, setCriticismLevel] = useState('balanced');
+  const [priority, setPriority] = useState('balanced');
 
-  // Run state
   const [submitting, setSubmitting] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+
   const [currentRun, setCurrentRun] = useState(null);
   const [memo, setMemo] = useState(null);
   const [memoError, setMemoError] = useState(null);
-
-  // Persist currentRun across reloads / device switches.
-  // Zapis runId do localStorage + URL hash, zeby sesja przetrwala F5
-  // i przejscie Safari (Mac) -> Safari (iPhone przez Tailscale).
-  useEffect(() => {
-    if (currentRun?.runId) {
-      const id = currentRun.runId;
-      // 1. localStorage - dziala w ramach origin (Mac localhost / iPhone tailnet)
-      try {
-        localStorage.setItem('forge.currentRunId', id);
-      } catch (e) {
-        console.warn('[forge] persist: localStorage write failed', e);
-      }
-      // 2. URL hash - przezywa F5; przy kill Safari zostaje w historii (Web history)
-      try {
-        if (window.location.hash !== '#' + id) {
-          window.history.replaceState(null, '', '#' + id);
-        }
-      } catch (e) {
-        console.warn('[forge] persist: history.replaceState failed', e);
-      }
-      // 3. Cookie Secure - trwalsze niz localStorage w iOS Safari,
-      //    potencjalnie synchronizowane przez iCloud Keychain (Mac <-> iPhone).
-      //    Wymaga HTTPS - dziala przez Tailscale (lenovo-server.tailc...ts.net:4000).
-      try {
-        const isHttps = window.location.protocol === 'https:';
-        const oneYear = 60 * 60 * 24 * 365;
-        const cookie = 'forge.currentRunId=' + encodeURIComponent(id)
-          + '; Max-Age=' + oneYear
-          + '; Path=/'
-          + '; SameSite=Lax'
-          + (isHttps ? '; Secure' : '');
-        document.cookie = cookie;
-      } catch (e) {
-        console.warn('[forge] persist: cookie write failed', e);
-      }
-    }
-  }, [currentRun?.runId]);
-
-  // Runs list
-  const [runs, setRuns] = useState([]);
-  const [runsFilter, setRunsFilter] = useState('all');
-  const [runsSearch, setRunsSearch] = useState('');
 
   const unsubRef = useRef(null);
 
@@ -117,79 +109,13 @@ export default function App() {
     setBackendError(err);
   };
 
-  // ===== Initial data load =====
-  useEffect(() => {
-    (async () => {
-      const [h, p, a, w] = await Promise.all([
-        getHealth(onBackendDown),
-        getProviders(onBackendDown),
-        getAgents(onBackendDown),
-        getWorkflows(onBackendDown),
-      ]);
-      setHealth(h.ok ? h.data : { status: 'down' });
-      setProviders(p);
-      setAgents(a?.agents || []);
-      setWorkflows(w?.workflows || []);
-      if (!h.ok) setBackendDown(true);
-    })();
-    refreshRuns();
-    // Rehydrate currentRun - kaskada: URL hash > cookie > localStorage.
-    // (async IIFE - nie blokuje inicjalizacji backend/health/providers.)
-    (async () => {
-      const log = (m) => console.log('[forge] rehydrate:', m);
-      const fromHash = (window.location.hash || '').replace(/^#/, '').trim();
-      const cookieMatch = document.cookie.match(/(?:^|;\s*)forge\.currentRunId=([^;]+)/);
-      const fromCookie = cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
-      let fromLs = '';
-      try { fromLs = localStorage.getItem('forge.currentRunId') || ''; } catch {}
-      const savedId = fromHash || fromCookie || fromLs;
-      const source = fromHash ? 'url-hash' : (fromCookie ? 'cookie' : (fromLs ? 'localStorage' : 'none'));
-      log('sources: hash=' + JSON.stringify(fromHash)
-        + ' cookie=' + JSON.stringify(fromCookie)
-        + ' localStorage=' + JSON.stringify(fromLs)
-        + ' origin=' + window.location.origin);
-      if (!savedId) {
-        log('no saved runId - starting fresh');
-        return;
-      }
-      log('resuming run ' + savedId + ' from ' + source);
-      try {
-        await openRunById(savedId, setCurrentRun, fetchMemo);
-        log('resumed run ' + savedId);
-      } catch (e) {
-        console.error('[forge] rehydrate: openRunById failed', e);
-        try { localStorage.removeItem('forge.currentRunId'); } catch {}
-        // Wyczysc rowniez cookie zeby nie petlac
-        document.cookie = 'forge.currentRunId=; Max-Age=0; Path=/';
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (!currentRun) return;
-    const id = currentRun.runId;
-    let cancelled = false;
-    const unsub = subscribeRunWithFallback(id, {
-      onEvent: (type, payload) => {
-        if (cancelled) return;
-        setCurrentRun((prev) => applyEvent(prev, type, payload));
-        if (type === 'run_completed' || type === 'run_failed') {
-          fetchMemo(id);
-          refreshRuns();
-        }
-      },
-      onUpdate: (data) => {
-        if (cancelled) return;
-        setCurrentRun((prev) => ({ ...(prev || {}), ...data, runId: id }));
-        if (data.status === 'completed' || data.status === 'failed') {
-          fetchMemo(id);
-          refreshRuns();
-        }
-      },
-    });
-    unsubRef.current = unsub;
-    return () => { cancelled = true; unsub(); };
-  }, [currentRun?.runId]);
+  async function refreshBootstrap() {
+    const [h, w] = await Promise.all([getHealth(onBackendDown), getWorkflows(onBackendDown)]);
+    setHealth(h.ok ? h.data : { status: 'down' });
+    setWorkflows(w?.workflows || []);
+    setBackendDown(!h.ok);
+    if (h.ok) setBackendError(null);
+  }
 
   async function refreshRuns() {
     try {
@@ -199,6 +125,39 @@ export default function App() {
       setRuns([]);
     }
   }
+
+  useEffect(() => {
+    refreshBootstrap();
+    refreshRuns();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('forge.currentRunId');
+      if (window.location.hash) window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
+    unsubRef.current?.();
+    if (!currentRun?.runId || FINAL_STATUSES.has(currentRun.status)) return undefined;
+
+    const unsub = subscribeRunWithFallback(currentRun.runId, {
+      onEvent: (type, payload) => {
+        setCurrentRun((prev) => applyEvent(prev, type, payload));
+        if (type === 'run_completed') {
+          fetchMemo(currentRun.runId);
+          refreshRuns();
+        }
+        if (type === 'run_failed' || type === 'run_cancelled') refreshRuns();
+      },
+      onUpdate: (data) => {
+        setCurrentRun((prev) => normalizeRun(data, prev || {}));
+        if (FINAL_STATUSES.has(data.status)) refreshRuns();
+        if (data.status === 'completed') fetchMemo(data.runId);
+      },
+      onError: () => {},
+    });
+    unsubRef.current = unsub;
+    return () => unsub();
+  }, [currentRun?.runId, currentRun?.status]);
 
   async function fetchMemo(runId) {
     try {
@@ -211,792 +170,219 @@ export default function App() {
     }
   }
 
+  async function openRun(runId) {
+    try {
+      const data = await getRun(runId);
+      const normalized = normalizeRun(data);
+      setCurrentRun(normalized);
+      setMemo(null);
+      setMemoError(null);
+      // Land on the right tab depending on what the run has produced so far
+      setNav(normalized.status === 'completed' ? 'memo' : 'analysis');
+      if (normalized.status === 'completed') fetchMemo(runId);
+    } catch {
+      if (typeof window !== 'undefined') localStorage.removeItem('forge.currentRunId');
+    }
+  }
+
   async function handleStart() {
     setSubmitError(null);
     if (!idea.trim()) {
-      setSubmitError('Wpisz ideę, problem albo decyzję, aby rozpocząć.');
+      setSubmitError(t('ideaRequiredError'));
       return;
     }
     setSubmitting(true);
     try {
-      const data = await createRun({ workflowType, idea, context, constraints });
-      setCurrentRun({
+      const runLanguage = (typeof window !== 'undefined' && localStorage.getItem('language')) || lang;
+      const data = await createRun({ workflowType, idea, context, constraints, language: runLanguage });
+      const workflow = workflows.find((w) => w.id === workflowType);
+      const initial = normalizeRun({
         runId: data.runId,
         status: data.status || 'pending',
-        stages: buildInitialStages(),
-        startedAt: new Date().toISOString(),
-        idea,
         workflowType,
+        idea,
+        context,
+        constraints,
+        language: runLanguage,
+        createdAt: data.createdAt || nowIso(),
+        startedAt: nowIso(),
+        stages: (workflow?.agents?.length ? workflow.agents : AGENT_IDS).map((agent) => ({ agent, status: 'pending' })),
       });
+      setCurrentRun(initial);
       setMemo(null);
       setMemoError(null);
+      setNav('analysis');
+      refreshRuns();
     } catch (e) {
-      setSubmitError(e.message || 'Nie udało się uruchomić runu.');
+      setSubmitError(e.message || t('runError'));
     } finally {
       setSubmitting(false);
     }
   }
 
-  function handleReset() {
+  async function handleStop() {
+    if (!currentRun?.runId || FINAL_STATUSES.has(currentRun.status)) return;
+    setStopping(true);
+    try {
+      const data = await cancelRun(currentRun.runId);
+      setCurrentRun((prev) => normalizeRun(data.run || { ...prev, status: 'cancelled' }, prev || {}));
+      refreshRuns();
+    } catch {
+      // noop — surface via run state
+    } finally {
+      setStopping(false);
+    }
+  }
+
+  function handleNewRun() {
     unsubRef.current?.();
     setCurrentRun(null);
     setMemo(null);
     setMemoError(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('forge.currentRunId');
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    setNav('idea');
     refreshRuns();
   }
 
-  const activeProvider = providers?.activeProvider;
-  const activeProviderMeta = providers?.providers?.find((p) => p.id === activeProvider);
+  async function handleDeleteRun(runId) {
+    await deleteRun(runId);
+    if (currentRun?.runId === runId) handleNewRun();
+    await refreshRuns();
+  }
+
   const activeWorkflow = workflows.find((w) => w.id === workflowType);
-  const activeAgentCount = activeWorkflow?.agents?.length || 0;
-  const canStart = idea.trim().length > 0 && !submitting && !backendDown;
+  const canStart = idea.trim().length > 0 && !submitting && !backendDown && !currentRun;
+  const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
 
-  return (
-    <div className="app">
-      <Header
-        health={health}
-        provider={activeProvider}
-        providerMeta={activeProviderMeta}
-        providers={providers?.providers || []}
-        backendDown={backendDown}
-        backendError={backendError}
-        lang={uiLang}
-        setUiLang={setUiLang}
-        onRetry={async () => {
-          setBackendDown(false); setBackendError(null);
-          const h = await getHealth(onBackendDown);
-          setHealth(h.ok ? h.data : { status: 'down' });
-          if (h.ok) {
-            const p = await getProviders(onBackendDown);
-            setProviders(p);
-          }
-        }}
-      />
+  const headerExtras = (
+    <div className="flex items-center gap-3">
+      {!currentRun && (
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setNav('history')}>
+          <Plus className="h-3.5 w-3.5" /> {t('newAnalysis')}
+        </button>
+      )}
+      {currentRun && (
+        <button type="button" className="btn btn-secondary btn-sm" onClick={handleNewRun}>
+          <Plus className="h-3.5 w-3.5" /> {t('newAnalysis')}
+        </button>
+      )}
+    </div>
+  );
 
-      <main className="app-main">
-        {/* ========== LEFT COLUMN — INPUT ========== */}
-        <div>
-          <NewRunCard
-            idea={idea} setIdea={setIdea}
-            workflowType={workflowType} setWorkflowType={setWorkflowType}
+  // ─────────────────────────────────────────────────────────────────────────
+  // Per-tab content. Hard rule from FIX_TAB_CONTENT_RENDERING_MAIN_VIEW.md:
+  // never render tab views as siblings of <main>. Each tab returns ONE block
+  // and only the active one is mounted.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  function IdeaView() {
+    return (
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <div className="space-y-6 min-w-0">
+          <IdeaInputForm
+            idea={idea}
+            setIdea={setIdea}
+            workflowType={workflowType}
+            setWorkflowType={setWorkflowType}
             workflows={workflows}
-            context={context} setContext={setContext}
-            constraints={constraints} setConstraints={setConstraints}
-            extraOptionsOpen={extraOptionsOpen} setExtraOptionsOpen={setExtraOptionsOpen}
-            lengthPref={lengthPref} setLengthPref={setLengthPref}
-            criticismLevel={criticismLevel} setCriticismLevel={setCriticismLevel}
-            priority={priority} setPriority={setPriority}
-            extraInstructions={extraInstructions} setExtraInstructions={setExtraInstructions}
+            context={context}
+            setContext={setContext}
+            constraints={constraints}
+            setConstraints={setConstraints}
+            extraInstructions={extraInstructions}
+            setExtraInstructions={setExtraInstructions}
+            lengthPref={lengthPref}
+            setLengthPref={setLengthPref}
+            criticismLevel={criticismLevel}
+            setCriticismLevel={setCriticismLevel}
+            priority={priority}
+            setPriority={setPriority}
             canStart={canStart}
             submitting={submitting}
             submitError={submitError}
-            activeProvider={activeProvider}
-            activeProviderMeta={activeProviderMeta}
-            activeWorkflow={activeWorkflow}
-            activeAgentCount={activeAgentCount}
             onStart={handleStart}
-            disabled={!!currentRun}
-            backendDown={backendDown}
+            disabled={!!currentRun || backendDown}
           />
         </div>
 
-        {/* ========== RIGHT COLUMN — PRODUCT ========== */}
-        <div>
-          {backendDown && <BackendDiagnostics error={backendError} onRetry={() => window.location.reload()} />}
-
-          {!currentRun && !backendDown && <ProductExplainer />}
-
-          {currentRun && (
-            <>
-              <StatusCard run={currentRun} providers={providers} />
-              <ProgressCard run={currentRun} />
-              <AgentsCard run={currentRun} />
-              <ArtifactsCard run={currentRun} />
-              <DecisionMemoCard run={currentRun} memo={memo} memoError={memoError} />
-              <div className="card">
-                <button className="btn btn-ghost" onClick={handleReset} style={{ width: '100%' }}>
-                  Nowy run
-                </button>
-              </div>
-            </>
+        <div className="space-y-6 min-w-0">
+          {backendDown && <BackendStatus down={backendDown} error={backendError} onRetry={refreshBootstrap} />}
+          <AnalysisExplainer workflow={activeWorkflow} />
+          {runs.length > 0 && !isMobile && (
+            <RunsHistoryPanel runs={runs.slice(0, 5)} onOpen={openRun} onDelete={handleDeleteRun} onRefresh={refreshRuns} />
           )}
         </div>
-      </main>
-
-      {/* ========== SECONDARY: MOJE RUNY ========== */}
-      <div className="app-main" style={{ paddingTop: 0 }}>
-        <div style={{ gridColumn: '1 / -1' }}>
-          <section className="card secondary-section">
-            <div className="card-header">
-              <h2 className="card-title" style={{ margin: 0 }}>Moje runy</h2>
-              <span className="card-subtle">Historia analiz</span>
-              <button className="btn btn-sm btn-ghost" onClick={refreshRuns}>Odśwież</button>
-            </div>
-            <RunsTable
-              runs={runs}
-              filter={runsFilter} setFilter={setRunsFilter}
-              search={runsSearch} setSearch={setRunsSearch}
-              onOpen={(runId) => openRunById(runId, setCurrentRun, fetchMemo)}
-            />
-          </section>
-        </div>
       </div>
-    </div>
-  );
-}
-
-function openRunById(runId, setCurrentRun, fetchMemo) {
-  (async () => {
-    try {
-      const data = await getRun(runId);
-      setCurrentRun({
-        runId,
-        status: data.status,
-        stages: data.stages || buildInitialStagesFromAgents(data.agents || []),
-        startedAt: data.createdAt || data.startedAt,
-        idea: data.idea || '(loaded run)',
-        workflowType: data.workflowType || 'decision_memo',
-        provider: data.provider,
-        requestedModel: data.requestedModel,
-        actualModel: data.actualModel,
-      });
-      fetchMemo(runId);
-    } catch (e) {
-      console.error('open run failed:', e);
-    }
-  })();
-}
-
-function applyEvent(prev, type, payload) {
-  if (!prev) return prev;
-  const next = { ...prev };
-  if (payload?.status) next.status = payload.status;
-  if (payload?.error) next.error = payload.error;
-  if (payload?.model && !next.actualModel) next.actualModel = payload.model;
-  if (payload?.provider) next.provider = payload.provider;
-  if (type === 'agent_started' || type === 'agent_completed' || type === 'agent_failed') {
-    const stageName = payload.agent || payload.stage;
-    next.stages = markStage(next.stages, stageName, type);
+    );
   }
-  if (type === 'run_completed') next.status = 'completed';
-  if (type === 'run_failed') next.status = 'failed';
-  return next;
-}
 
-function buildInitialStages() {
-  return AGENTS.map((a) => ({ agent: a.id, status: 'pending' }));
-}
-
-function buildInitialStagesFromAgents(agents) {
-  return agents.map((a) => ({ agent: a, status: 'pending' }));
-}
-
-function markStage(stages, agentId, type) {
-  const statusMap = {
-    agent_started: 'running',
-    agent_completed: 'completed',
-    agent_failed: 'failed',
-  };
-  return stages.map((s) => {
-    if (s.agent !== agentId) return s;
-    if (type === 'agent_started') return { ...s, status: 'running' };
-    if (type === 'agent_completed') return { ...s, status: 'completed' };
-    if (type === 'agent_failed') return { ...s, status: 'failed' };
-    return s;
-  });
-}
-
-// ==================== HEADER ====================
-
-function Header({ health, provider, providerMeta, providers, backendDown, backendError, onRetry, lang, setLang }) {
-  const backendOk = health?.status === 'ok';
-  return (
-    <header className="app-header">
-      <div className="app-header-inner">
-        <div className="app-title-block">
-          <h1 className="app-title">AI Idea Forge</h1>
-          <p className="app-tagline">Pomysł → Krytyka → Ryzyka → Rekomendacja</p>
-        </div>
-        <div className="app-badges">
-          <span className={`badge ${backendOk ? 'badge-ok' : 'badge-error'}`} title={backendError ? String(backendError) : ''}>
-            Backend: {backendOk ? t('backendOk') : (backendError ? t('backendDown') : t('backendUnknown'))}
-          </span>
-          {provider && providerMeta && (
-            <span className="badge">
-              {t('infoProvider')} {providerMeta.name}
-              {providerMeta.baseUrl ? ` · ${providerMeta.baseUrl.replace(/^https?:\/\//, '')}` : ''}
-            </span>
-          )}
-          <span className="badge">{t(infoModel)} {providerMeta?.defaultModel || 'default'}</span>
-          <span className="badge">{t('mvp')}</span>
-          <span style={{ display: 'flex', gap: '0.2rem', alignItems: 'center', marginLeft: '0.25rem' }}>
-            {['en', 'de', 'pl'].map((l) => (
-              <button key={l} className={`btn btn-sm ${lang===l?'btn-primary':'btn-ghost'}`} onClick={()=>setLang(l)} style={{ padding: '0.125rem 0.35rem', fontSize: '0.7rem' }}>{l.toUpperCase()}</button>
-            ))}
-          </span>
-          {!backendOk && (
-            <button className="btn btn-sm btn-ghost" onClick={onRetry} style={{ padding: '0.125rem 0.5rem' }}>
-              {t(retry)}
-            </button>
-          )}
-        </div>
-      </div>
-    </header>
-  );
-}
-
-// ==================== NEW RUN CARD ====================
-
-function NewRunCard(props) {
-  const {
-    idea, setIdea, workflowType, setWorkflowType, workflows,
-    context, setContext, constraints, setConstraints,
-    extraOptionsOpen, setExtraOptionsOpen,
-    lengthPref, setLengthPref, criticismLevel, setCriticismLevel, priority, setPriority,
-    extraInstructions, setExtraInstructions,
-    canStart, submitting, submitError,
-    activeProvider, activeProviderMeta, activeWorkflow, activeAgentCount,
-    onStart, disabled, backendDown,
-  } = props;
-
-  return (
-    <div className="card">
-      <h2 className="card-title">Nowy run</h2>
-
-      <div className="form-section">
-        <label className="form-label" htmlFor="idea">Idea / Problem / Decyzja</label>
-        <textarea
-          id="idea"
-          className="textarea"
-          rows={7}
-          maxLength={5000}
-          placeholder="Opisz pomysł, decyzję albo problem, który chcesz przetestować..."
-          value={idea}
-          onChange={(e) => setIdea(e.target.value)}
-          disabled={disabled}
-        />
-        <div className="form-help flex-between">
-          <span className={idea.trim() ? '' : 'form-help-error'}>
-            {idea.trim() ? '' : 'Wpisz ideę, problem albo decyzję, aby rozpocząć.'}
-          </span>
-          <span>{idea.length} / 5000</span>
-        </div>
-      </div>
-
-      <div className="form-section">
-        <label className="form-label">Tryb pracy</label>
-        <div className="mode-grid">
-          {workflows.map((w) => (
-            <button
-              key={w.id}
-              type="button"
-              className={`mode-tile ${workflowType === w.id ? 'is-selected' : ''}`}
-              onClick={() => setWorkflowType(w.id)}
-              disabled={disabled}
-            >
-              <div className="mode-tile-title">{w.name}</div>
-              <div className="mode-tile-desc">{w.description}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="form-section">
-        <label className="form-label" htmlFor="context">Kontekst</label>
-        <textarea
-          id="context" className="textarea" rows={3}
-          placeholder="Dodaj tło sytuacji, odbiorców, cel, aktualny etap, znane fakty..."
-          value={context} onChange={(e) => setContext(e.target.value)} disabled={disabled}
-        />
-      </div>
-
-      <div className="form-section">
-        <label className="form-label" htmlFor="constraints">Ograniczenia</label>
-        <textarea
-          id="constraints" className="textarea" rows={3}
-          placeholder="Budżet, czas, zasoby, technologie, ryzyka prawne, prywatność, preferencje..."
-          value={constraints} onChange={(e) => setConstraints(e.target.value)} disabled={disabled}
-        />
-      </div>
-
-      <div className="form-section">
-        <button
-          type="button"
-          className="collapsible-trigger"
-          onClick={() => setExtraOptionsOpen(!extraOptionsOpen)}
-        >
-          <span>{extraOptionsOpen ? '▾' : '▸'}</span>
-          <span>Dodatkowe opcje</span>
-        </button>
-        {extraOptionsOpen && (
-          <div className="collapsible-body">
-            <div className="options-grid">
-              <div>
-                <label className="form-label" htmlFor="lengthPref">Długość odpowiedzi</label>
-                <select id="lengthPref" className="select" value={lengthPref} onChange={(e) => setLengthPref(e.target.value)} disabled={disabled}>
-                  <option>Krótka</option><option>Średnia</option><option>Długa</option>
-                </select>
-              </div>
-              <div>
-                <label className="form-label" htmlFor="criticismLevel">Poziom krytyki</label>
-                <select id="criticismLevel" className="select" value={criticismLevel} onChange={(e) => setCriticismLevel(e.target.value)} disabled={disabled}>
-                  <option>Łagodny</option><option>Średni</option><option>Ostry</option>
-                </select>
-              </div>
-              <div>
-                <label className="form-label" htmlFor="priority">Priorytet</label>
-                <select id="priority" className="select" value={priority} onChange={(e) => setPriority(e.target.value)} disabled={disabled}>
-                  <option>Balans</option><option>Szybkość</option><option>Dokładność</option>
-                </select>
-              </div>
-            </div>
-            <div className="form-section">
-              <label className="form-label" htmlFor="extraInstructions">Dodatkowe instrukcje dla agentów</label>
-              <textarea
-                id="extraInstructions" className="textarea" rows={3}
-                placeholder="Specjalne instrukcje dla agentów, np. uwzględnij ryzyka prawne, prywatność, mały budżet..."
-                value={extraInstructions} onChange={(e) => setExtraInstructions(e.target.value)} disabled={disabled}
-              />
-            </div>
+  function AnalysisView() {
+    return (
+      <div className="space-y-6">
+        {backendDown && <BackendStatus down={backendDown} error={backendError} onRetry={refreshBootstrap} />}
+        {currentRun ? (
+          <AnalysisProgress run={currentRun} onStop={handleStop} stopping={stopping} />
+        ) : (
+          <div className="rounded-md border border-dashed border-border bg-background/40 p-10 text-center text-sm text-muted-foreground">
+            {t('memoWaiting')}
           </div>
         )}
+        <AnalysisExplainer workflow={activeWorkflow} />
       </div>
-
-      <div className="form-section">
-        <dl className="info-panel">
-          <dt>Provider:</dt><dd>{activeProviderMeta?.name || activeProvider || '—'}</dd>
-          <dt>Endpoint:</dt><dd className="text-mono">{activeProviderMeta?.baseUrl || '—'}</dd>
-          <dt>Model:</dt><dd>{activeProviderMeta?.defaultModel || 'default'}</dd>
-          <dt>{t('infoAgents')}</dt><dd>{activeAgentCount}</dd>
-          <dt>{t('infoMode')}</dt><dd>t('pipelineMode')</dd>
-          <dt>{t('infoStreaming')}</dt><dd>t('streamingMode')</dd>
-        </dl>
-      </div>
-
-      <button
-        className="btn btn-primary"
-        disabled={!canStart}
-        onClick={onStart}
-        type="button"
-      >
-        {submitting ? t('startingButton') : (backendDown ? t('backendUnavailable') : t('startButton'))}
-      </button>
-      {submitError && (
-        <div className="form-help form-help-error" style={{ marginTop: '0.5rem' }}>{submitError}</div>
-      )}
-      <p className="form-help" style={{ marginTop: '0.5rem', textAlign: 'center' }}>
-        Analiza uruchomi kolejno: {AGENTS.slice(0, 6).map((a) => a.name).join(' → ')}.
-      </p>
-    </div>
-  );
-}
-
-// ==================== BACKEND DIAGNOSTICS ====================
-
-function BackendDiagnostics({ error, onRetry }) {
-  return (
-    <div className="card error-card">
-      <h2 className="card-title">{t('backendUnavailableTitle')}</h2>
-      <div className="error-message">
-        {t('backendUnavailableMsg')}
-      </div>
-      <details>
-        <summary className="text-small text-muted">{t('technicalDetails')}</summary>
-        <div className="error-details">
-          {error ? String(error.message || error) : t('detailsNoData')}
-          {t('detailsCheckList')}
-        </div>
-      </details>
-      <button className="btn btn-secondary mt-1" onClick={onRetry} type="button">
-        {t('tryAgain')}
-      </button>
-    </div>
-  );
-}
-
-// ==================== PRODUCT EXPLAINER (right column, before start) ====================
-
-function ProductExplainer() {
-  return (
-    <>
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title" style={{ margin: 0 }}>{t('howItWorks')}</h2>
-          <span className="card-subtle">6 agentów · sekwencyjnie</span>
-        </div>
-        <p className="text-small text-muted mb-2">
-          Twoja idea przechodzi przez 6 wyspecjalizowanych agentów. Każdy dodaje swoją perspektywę:
-        </p>
-        <ol className="agent-explainer-list">
-          {AGENTS.map((a, i) => (
-            <li key={a.id} className="agent-explainer-item">
-              <span className="agent-explainer-num">{i + 1}</span>
-              <div>
-                <div className="agent-explainer-name">{a.name}</div>
-                <div className="agent-explainer-desc">{a.description}</div>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title" style={{ margin: 0 }}>Decision Memo</h2>
-          <span className="card-subtle">artefakt docelowy</span>
-        </div>
-        <p className="text-small text-muted mb-2">
-          Po zakończeniu analizy wygenerujesz konkretny artefakt decyzyjny z następującymi sekcjami:
-        </p>
-        <div className="memo-placeholder">
-          <div className="memo-placeholder-h1"># DECISION MEMO</div>
-          {MEMO_SECTIONS.map((s) => (
-            <div key={s} className="memo-placeholder-section">## {s}</div>
-          ))}
-        </div>
-        <p className="form-help mt-2">
-          Celem aplikacji nie jest „pogadanka modeli”, tylko dostarczenie jednego, konkretnego dokumentu decyzyjnego.
-        </p>
-      </div>
-    </>
-  );
-}
-
-// ==================== STATUS CARD ====================
-
-function StatusCard({ run, providers }) {
-  const status = run.status || 'idle';
-  const elapsed = useTicker(run.startedAt, status === 'running' || status === 'pending');
-  const currentAgent = (run.stages || []).find((s) => s.status === 'running')?.agent;
-  const activeProvider = providers?.providers?.find((p) => p.id === run.provider);
-  const displayModel = run.actualModel || run.requestedModel || activeProvider?.defaultModel || '—';
-
-  return (
-    <div className="card">
-      <h2 className="card-title">Status analizy</h2>
-      <dl className="status-row">
-        <dt>Status:</dt>
-        <dd><span className={`status-pill status-pill-${status}`}>{status}</span></dd>
-        <dt>Run ID:</dt>
-        <dd style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem' }}>{run.runId}</dd>
-        <dt>{t('currentAgent')}</dt>
-        <dd>{currentAgent ? (AGENTS.find((a) => a.id === currentAgent)?.name || currentAgent) : '—'}</dd>
-        <dt>{t('elapsed')}</dt><dd>{elapsed}</dd>
-        <dt>Provider:</dt><dd>{run.provider || activeProvider?.id || '—'}</dd>
-        <dt>Model:</dt><dd>{displayModel}</dd>
-        <dt>{t('infoMode')}</dt><dd>{run.workflowType || 'decision_memo'}</dd>
-      </dl>
-      {(status === 'running' || status === 'pending') && (
-        <p className="form-help" style={{ marginTop: '0.75rem' }}>t('analysisInProgress')</p>
-      )}
-      {status === 'failed' && run.error && (
-        <div className="error-message" style={{ marginTop: '0.5rem' }}>{run.error}</div>
-      )}
-    </div>
-  );
-}
-
-// ==================== PROGRESS CARD ====================
-
-function ProgressCard({ run }) {
-  const stages = run.stages || AGENTS.map((a) => ({ agent: a.id, status: 'pending' }));
-  return (
-    <div className="card">
-      <h2 className="card-title">Postęp</h2>
-      <ul className="progress-list">
-        {stages.map((s) => (
-          <li key={s.agent} className="progress-row">
-            <span className={`progress-icon progress-icon-${s.status}`}>
-              {s.status === 'pending' && '○'}
-              {s.status === 'running' && '●'}
-              {s.status === 'completed' && '✓'}
-              {s.status === 'failed' && '!'}
-            </span>
-            <span className={`progress-label ${s.status === 'running' ? 'is-running' : ''} ${s.status === 'pending' ? 'is-pending' : ''}`}>
-              {AGENTS.find((a) => a.id === s.agent)?.name || s.agent}
-            </span>
-          </li>
-        ))}
-        <li className="progress-row">
-          <span className={`progress-icon ${run.status === 'completed' ? 'progress-icon-completed' : 'progress-icon-pending'}`}>
-            {run.status === 'completed' ? '✓' : '○'}
-          </span>
-          <span className={`progress-label ${run.status === 'completed' ? '' : 'is-pending'}`}>Decision Memo</span>
-        </li>
-      </ul>
-    </div>
-  );
-}
-
-// ==================== AGENTS CARD ====================
-
-function AgentsCard({ run }) {
-  const [expanded, setExpanded] = useState({});
-  const stages = run.stages || [];
-  if (stages.length === 0) return null;
-  return (
-    <div className="card">
-      <h2 className="card-title">Praca agentów</h2>
-      <div className="agent-list">
-        {stages.map((s) => (
-          <AgentRow
-            key={s.agent}
-            stage={s}
-            expanded={!!expanded[s.agent]}
-            onToggle={() => setExpanded({ ...expanded, [s.agent]: !expanded[s.agent] })}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AgentRow({ stage, expanded, onToggle }) {
-  const a = AGENTS.find((x) => x.id === stage.agent);
-  const name = a?.name || stage.agent;
-  const desc = a?.description || '';
-  return (
-    <div className="agent-card">
-      <div className="agent-header" onClick={onToggle}>
-        <div className="agent-meta">
-          <span className={`progress-icon progress-icon-${stage.status}`}>
-            {stage.status === 'pending' && '○'}
-            {stage.status === 'running' && '●'}
-            {stage.status === 'completed' && '✓'}
-            {stage.status === 'failed' && '!'}
-          </span>
-          <div>
-            <div className="agent-name">{name}</div>
-            <div className="agent-role">{desc}</div>
-          </div>
-        </div>
-        <div className="flex-gap-1">
-          <span className="agent-status">{stage.status}</span>
-          <button type="button" className="agent-toggle" onClick={(e) => { e.stopPropagation(); onToggle(); }}>
-            {expanded ? 'Ukryj' : 'Pokaż'}
-          </button>
-        </div>
-      </div>
-      {expanded && (
-        <div className="agent-body">
-          {stage.output || (stage.status === 'failed' ? 'Agent zakończył pracę błędem.' : 'Brak danych (output pojawi się po zakończeniu agenta).')}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ==================== ARTIFACTS CARD ====================
-
-const ARTIFACT_LIST = [
-  { id: 'decision_memo', name: 'Decision Memo', active: true },
-  { id: 'premortem', name: 'Pre-mortem', soon: true },
-  { id: 'assumptions', name: 'Assumptions Map', soon: true },
-  { id: 'mvp_test', name: 'MVP Test Plan', soon: true },
-  { id: 'variant_compare', name: 'Variant Comparison', soon: true },
-  { id: 'open_questions', name: 'Open Questions', soon: true },
-];
-
-function ArtifactsCard({ run }) {
-  return (
-    <div className="card">
-      <h2 className="card-title">Artefakty</h2>
-      <div className="artifact-list">
-        {ARTIFACT_LIST.map((a) => (
-          <div key={a.id} className="artifact-item">
-            <div className="flex-gap-2">
-              <span className="artifact-name">{a.name}</span>
-              {a.active ? (
-                <span className="artifact-badge artifact-badge-active">aktywny</span>
-              ) : (
-                <span className="artifact-badge">wkrótce</span>
-              )}
-            </div>
-            {a.active && (
-              <div className="artifact-actions">
-                <a className="btn btn-sm btn-secondary" href={`/api/forge/runs/${run.runId}/artifacts/decision-memo`} target="_blank" rel="noreferrer">Pobierz</a>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ==================== DECISION MEMO CARD ====================
-
-function DecisionMemoCard({ run, memo, memoError }) {
-  const status = run.status;
-  const html = useMemo(() => (memo ? renderMarkdown(memo) : ''), [memo]);
-
-  function copyMarkdown() {
-    if (!memo) return;
-    navigator.clipboard.writeText(memo).then(() => {
-      const btn = document.getElementById('memo-copy-btn');
-      if (btn) {
-        const orig = btn.textContent;
-        btn.textContent = 'Skopiowano ✓';
-        setTimeout(() => { btn.textContent = orig; }, 1500);
-      }
-    });
+    );
   }
 
-  function downloadMemo() {
-    if (!memo) return;
-    const blob = new Blob([memo], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `DECISION_MEMO_${run.runId}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <div className="card">
-      <div className="card-header">
-        <h2 className="card-title" style={{ margin: 0 }}>Decision Memo</h2>
-        {memo && <span className="card-subtle">{(memo.length / 1024).toFixed(1)} KB</span>}
-      </div>
-      {!memo && status !== 'completed' && (
-        <div className="empty-state">
-          Memo pojawi się po zakończeniu pracy agentów.
+  function DecisionMemoView() {
+    if (!currentRun) {
+      return (
+        <div className="rounded-md border border-dashed border-border bg-background/40 p-10 text-center text-sm text-muted-foreground">
+          {t('memoWaiting')}
         </div>
-      )}
-      {!memo && status === 'completed' && memoError && (
-        <div className="error-message">
-          Nie udało się pobrać memo: {memoError}
-        </div>
-      )}
-      {memo && (
-        <>
-          <div className="memo-preview" dangerouslySetInnerHTML={{ __html: html }} />
-          <div className="memo-actions">
-            <button id="memo-copy-btn" className="btn btn-sm btn-secondary" onClick={copyMarkdown}>
-              Kopiuj Markdown
-            </button>
-            <button className="btn btn-sm btn-secondary" onClick={downloadMemo}>
-              Pobierz .md
-            </button>
-            <a
-              className="btn btn-sm btn-ghost"
-              href={`/api/forge/runs/${run.runId}/artifacts/decision-memo`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Otwórz w nowej karcie
-            </a>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// ==================== RUNS TABLE (secondary section) ====================
-
-function RunsTable({ runs, filter, setFilter, search, setSearch, onOpen }) {
-  const filtered = useMemo(() => {
-    let list = runs || [];
-    if (filter === 'completed') list = list.filter((r) => r.status === 'completed');
-    else if (filter === 'running') list = list.filter((r) => r.status === 'running' || r.status === 'pending');
-    else if (filter === 'failed') list = list.filter((r) => r.status === 'failed');
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter((r) => (r.idea || '').toLowerCase().includes(q));
+      );
     }
-    return list;
-  }, [runs, filter, search]);
+    return <DecisionMemoPanel run={currentRun} memo={memo} memoError={memoError} />;
+  }
+
+  function HistoryView() {
+    return (
+      <RunsHistoryPanel
+        runs={runs}
+        onOpen={openRun}
+        onDelete={handleDeleteRun}
+        onRefresh={refreshRuns}
+      />
+    );
+  }
+
+  function ActiveTabContent() {
+    switch (nav) {
+      case 'analysis':
+        return <AnalysisView />;
+      case 'memo':
+        return <DecisionMemoView />;
+      case 'history':
+        return <HistoryView />;
+      case 'settings':
+        return <PlaceholderView kind="settings" />;
+      case 'help':
+        return <PlaceholderView kind="help" />;
+      case 'idea':
+      default:
+        return <IdeaView />;
+    }
+  }
 
   return (
-    <>
-      <div className="runs-toolbar">
-        <div className="runs-filters">
-          {[
-            { id: 'all', label: 'Wszystkie' },
-            { id: 'completed', label: 'Zakończone' },
-            { id: 'running', label: 'W toku' },
-            { id: 'failed', label: 'Błąd' },
-          ].map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              className={`runs-filter ${filter === f.id ? 'is-active' : ''}`}
-              onClick={() => setFilter(f.id)}
-            >
-              {f.label}
-            </button>
-          ))}
+    <AppShell activeNav={nav} onNavChange={setNav}>
+      <HeaderBar rightSlot={headerExtras} />
+      <main className="flex-1 min-w-0 min-h-0 overflow-y-auto">
+        <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
+          <ActiveTabContent />
         </div>
-        <input
-          type="text"
-          className="input runs-search"
-          placeholder="Szukaj runów..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-      {filtered.length === 0 ? (
-        <div className="empty-state">
-          {(runs || []).length === 0
-            ? 'Brak zapisanych runów. Uruchom analizę, aby zobaczyć ją tutaj.'
-            : 'Brak runów pasujących do filtrów.'}
-        </div>
-      ) : (
-        <table className="runs-table">
-          <thead>
-            <tr>
-              <th>Idea</th>
-              <th>Tryb</th>
-              <th>Provider / Model</th>
-              <th>Status</th>
-              <th>Data</th>
-              <th>Akcje</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((r) => (
-              <tr key={r.runId}>
-                <td className="runs-table-idea" title={r.idea}>{(r.idea || '').slice(0, 80) || '—'}</td>
-                <td>{r.workflowType || '—'}</td>
-                <td className="text-mono text-small">
-                  {r.provider || '—'}
-                  {r.actualModel ? ` · ${r.actualModel}` : r.requestedModel ? ` · ${r.requestedModel}` : ''}
-                </td>
-                <td><span className={`status-pill status-pill-${r.status}`}>{r.status}</span></td>
-                <td>{r.createdAt ? new Date(r.createdAt).toLocaleString() : '—'}</td>
-                <td>
-                  <div className="flex-gap-1">
-                    <button className="btn btn-sm btn-ghost" onClick={() => onOpen(r.runId)}>Otwórz</button>
-                    {r.status === 'completed' && (
-                      <a className="btn btn-sm btn-ghost" href={`/api/forge/runs/${r.runId}/artifacts/decision-memo`} target="_blank" rel="noreferrer">Memo</a>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </>
+      </main>
+    </AppShell>
   );
-}
-
-// ==================== HOOKS ====================
-
-function useTicker(startedAt, active) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    if (!active || !startedAt) return;
-    const t = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(t);
-  }, [active, startedAt]);
-  if (!startedAt) return '00:00:00';
-  const startMs = new Date(startedAt).getTime();
-  const diff = Math.max(0, Math.floor((now - startMs) / 1000));
-  const h = String(Math.floor(diff / 3600)).padStart(2, '0');
-  const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
-  const s = String(diff % 60).padStart(2, '0');
-  return `${h}:${m}:${s}`;
 }

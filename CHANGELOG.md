@@ -3,27 +3,55 @@
 ## [Unreleased]
 
 ### Fixed
-- **Pipeline status completion** — `orchestration/runEngine.js`: missing closing `}` on `if (res)` block caused `setCompleted()` + `saveRun()` to be skipped when SSE response was absent. Status now correctly transitions to `completed`.
-- **Decision Memo markdown parsing** — `artifacts/decisionMemoBuilder.js`: agent outputs were not parsed into Markdown sections. Builder now correctly extracts `# Problem`, `## Propozycja`, etc.
+- **Layout zakładek — tylko jeden aktywny widok w głównym panelu** — `frontend/src/App.jsx`:
+  - Poprzednio widoki `AnalysisProgress`, `DecisionMemoPanel`, `RunsHistoryPanel` (top-5) były renderowane jako rodzeństwo `<main>` lub pod `IdeaInputForm`, niezależnie od wybranej zakładki w sidebarze. Wynik: po kliknięciu "Pomysł" pod formularzem pojawiały się sekcje "Analiza", "Decision Memo", "Historia analiz" w jednym flow.
+  - Teraz `<main>` renderuje wyłącznie jedną aktywną zakładkę przez `ActiveTabContent` switch na `nav`. Nowa funkcja `openRun(runId)` kieruje do `nav='memo'` (gdy ukończony) lub `nav='analysis'` (gdy w toku / błąd). `handleStart()` po utworzeniu runu ustawia `nav='analysis'`.
+  - 6 dedykowanych widoków: `IdeaView`, `AnalysisView`, `DecisionMemoView`, `HistoryView`, `SettingsView` (placeholder), `HelpView` (placeholder).
+- **`analysis` i `memo` jako realne zakładki** — `frontend/src/components/SidebarNav.jsx`:
+  - Sidebar miał tylko pozycje `idea` i `history` działające; kliknięcie `templates`, `agents`, `settings`, `help` nie zmieniało widoku. Dodane pozycje `analysis` (ikona `Activity`) i `memo` (ikona `FileText`).
+- **`Pomysł` nie pokazuje już memo i analysis pod formularzem** — zgodnie z briefem Radosława i `FIX_TAB_CONTENT_RENDERING_MAIN_VIEW.md`: tylko jeden widok aktywny naraz. `IdeaView` zawiera tylko `IdeaInputForm` + `AnalysisExplainer` + top-5 `RunsHistoryPanel` + `BackendStatus` (gdy down).
 
-### Changed
-- **Initial git commit** — project committed to GitHub (Lord-Kedaar/ai-idea-forge)
+### Removed
+- **Zakładka `Szablony` usunięta** — `frontend/src/components/SidebarNav.jsx` + klucze `nav.templates` × 3 pliki i18n.
+- **Zakładka `Agenci` usunięta** — ta sama lista; zakładka nie miała widoku, endpointu ani treści.
+- **Backupy z developer's working tree** — `frontend/src/App.jsx.backup-*` (4 pliki), `frontend/src/theme.css.bak-monochrome-20260620`, `backend/src/artifacts/decisionMemoBuilder.js.backup-20260617-155627`. `.gitignore` rozszerzony o `*.backup-*`, `*.bak-*`, `*.bak`.
 
 ### Added
-- **i18n — English + German UI** — full internationalization with three languages:
-  - `frontend/src/i18n/I18nProvider.jsx` — React context provider with `useI18n()` hook
-  - `frontend/src/i18n/en.{js|json}`, `de.{js|json}`, `pl.{js|json}` — 100+ translated strings each
-  - Language persisted in localStorage, browser language auto-detected on first visit (fallback: PL)
-  - Language switcher in header: EN / DE / PL
-  - All UI strings externalized: buttons, labels, tooltips, error messages, agent names, memo sections
-- **Rate limiting + safety guards** — protects demo against token burn-out:
-  - `backend/src/middleware/rateLimit.js` — in-memory store with per-IP limits
-  - Per IP: max 10 requests/hour, max 100 requests/day
-  - Per session: 1 active pipeline at a time (30s cooldown after completion)
-  - `GET /api/rate-limit` — returns `{hourlyRemaining, dailyRemaining, hourlyLimit, dailyLimit}`
-  - Frontend header shows remaining requests; 429 responses show blocked UI
-  - Hard token cap: configurable `MAX_TOKENS_PER_RUN` (default 2000 output tokens per agent)
-  - Soft cap: max 6 agents x 3 iterations per run
+- **`frontend/src/components/PlaceholderView.jsx`** — generyczna karta "Wkrótce" dla `Settings` i `Help`. Tekst placeholdera z i18n (`placeholder.comingSoon`).
+- **Klucze i18n** — `frontend/src/i18n/{pl,en,de}.json`:
+  - dodane: `nav.analysis`, `nav.memo`, `placeholder.comingSoon`, `placeholder.settingsTitle`, `placeholder.helpTitle`
+  - usunięte: `nav.templates`, `nav.agents`
+
+### Tested
+- `vite build` — 1596 modules transformed, 0 errors, dist 234KB JS + 43KB CSS
+- Vite dev server (5173) — `--force` re-optimization, serwuje nowy JSX (curl `src/App.jsx` zawiera `PlaceholderView`, `ActiveTabContent`, wszystkie 6 case'ów switcha)
+- Bundle dist nie zawiera kluczy `nav.templates` / `nav.agents` (grep = 0)
+- Bundle dist zawiera klucze `nav.analysis` / `nav.memo` / `placeholder.comingSoon` (grep = 4)
+- Backend (3210) — `/health` = 200 OK
+- 8/8 backend tests (workflowRegistry.test.js) — pass
+
+## [0.4.0] — 2026-06-17
+
+### Added
+- **Hermes audit** — pełna inwentaryzacja stanu projektu
+
+### Known Issues (now documented)
+- **Run status bug** — run pozostaje w statusie "running" po zakończeniu wszystkich agentów. Fix wymagany w `orchestration/runEngine.js` w metodzie `completeRun()`.
+- **DecisionMemo builder** — surowe outputy agentów nie są parsowane na sekcje Markdown. Wymaga fix w `artifacts/decisionMemoBuilder.js`.
+- **Brak git commit** — cały projekt nigdy nie był zacommitowany
+
+### Verified Working
+- Backend działa na porcie 3210 (Node process active)
+- Frontend dev działa na porcie 5173, preview na 4173
+- FreeLLMApi provider aktywny, model cogito-2.1:671b przez Mac Studio
+- 13 historycznych runów na dysku
+- Ostatni run (806a8c...) — pełny przebieg 6 agentów z Decision Memo
+
+### Next Steps
+1. Fix run status tracking (runEngine.js)
+2. Fix DecisionMemo parsing (decisionMemoBuilder.js)  
+3. Pierwszy git commit
+4. End-to-end test z nowym runem
 
 ## [0.3.0] — 2026-06-15
 
@@ -35,7 +63,7 @@
   - Wymaga `FREELLMAPI_API_KEY`
 - **Provider-agnostic architektura** — `createApp.js` ma `buildProviderConfig()` mapujący env per provider; `providerRegistry` wciąż trzyma fabrykę
 - **Run metadata** — każdy run przechowuje `provider`, `requestedModel`, `actualModel`
-  - `actualModel` ustawiany z odpowiedzi providera (przydatne przy `model=auto`)
+  - `actualModel` ustawiany z odpowiedzi providera (przydatny przy `model=auto`)
   - `toJSON()` eksportuje te pola, GET `/api/forge/runs/:id` je zwraca
 - **UI: Product Explainer** — prawa kolumna PRZED startem pokazuje:
   - Panel "Jak działa analiza?" z 6 agentami (Generator, Sceptyk, Pragmatyk, Red Team, Redaktor, Decydent)
@@ -120,26 +148,3 @@
 - oMLX nie skonfigurowany na Lenovo; używaj `DEFAULT_PROVIDER=fake` do testów offline
 - Frontend wymaga potwierdzenia użytkownika (UI nie było ręcznie testowane)
 - Brak git commit
-
-## [0.4.0] — 2026-06-17
-
-### Added
-- **Hermes audit** — pełna inwentaryzacja stanu projektu
-
-### Known Issues (now documented)
-- **Run status bug** — run pozostaje w statusie "running" po zakończeniu wszystkich agentów. Fix wymagany w `orchestration/runEngine.js` w metodzie `completeRun()`.
-- **DecisionMemo builder** — surowe outputy agentów nie są parsowane na sekcje Markdown. Wymaga fix w `artifacts/decisionMemoBuilder.js`.
-- **Brak git commit** — cały projekt nigdy nie był zacommitowany
-
-### Verified Working
-- Backend działa na porcie 3210 (Node process active)
-- Frontend dev działa na porcie 5173, preview na 4173
-- FreeLLMApi provider aktywny, model cogito-2.1:671b przez Mac Studio
-- 13 historycznych runów na dysku
-- Ostatni run (806a8c...) — pełny przebieg 6 agentów z Decision Memo
-
-### Next Steps
-1. Fix run status tracking (runEngine.js)
-2. Fix DecisionMemo parsing (decisionMemoBuilder.js)  
-3. Pierwszy git commit
-4. End-to-end test z nowym runem
