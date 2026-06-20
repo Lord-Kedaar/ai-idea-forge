@@ -7,3 +7,8 @@ dist/
 logs/
 data/runs/
 .DS_Store
+
+# Backup files from iterative development
+*.backup-*
+*.bak-*
+*.bak
