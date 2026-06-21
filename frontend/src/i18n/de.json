@@ -189,7 +189,7 @@
   "downloadPdf": "Als PDF speichern",
   "downloadMarkdown": "Markdown laden",
   "demoModal.title": "Dies ist ein öffentliches Demo von AI Idea Forge",
-  "demoModal.body": "Die App ermöglicht es, die Ideenanalayse-Funktion zu testen. Zum Schutz des Demos vor Missbrauch gilt ein Limit von {{limit}} Analysen pro IP-Adresse.",
+  "demoModal.body": "Die App ermöglicht es, die Ideenanalyse-Funktion zu testen. Zum Schutz des Demos vor Missbrauch gilt ein Limit von 6 Analysen pro IP-Adresse.",
   "demoModal.remainingLabel": "Verbleibend:",
   "demoModal.analysesLeft": "Analysen",
   "demoModal.privacyNote": "Zur Durchsetzung des Limits nutzt die App Cookies und speichert Ihren IP-Adress-Hash auf dem Server. Details finden Sie in der Datenschutzrichtlinie.",

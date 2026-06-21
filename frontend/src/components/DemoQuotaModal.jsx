@@ -88,7 +88,7 @@ export function DemoQuotaModal({ quotaInfo, onClose }) {
           <p className="text-sm text-muted-foreground leading-relaxed">
             {t(
               'demoModal.body',
-              'Aplikacja pozwala przetestować funkcję analizy pomysłów. Aby zabezpieczyć demo przed nadużyciami, obowiązuje limit {{limit}} analiz na jeden adres IP.',
+              'Aplikacja pozwala przetestować funkcję analizy pomysłów. Aby zabezpieczyć demo przed nadużyciami, obowiązuje limit 6 analiz na jeden adres IP.',
               { limit }
             )}
           </p>

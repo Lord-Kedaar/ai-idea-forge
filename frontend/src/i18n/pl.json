@@ -189,7 +189,7 @@
   "downloadPdf": "Zapisz jako PDF",
   "downloadMarkdown": "Pobierz Markdown",
   "demoModal.title": "To jest publiczne demo AI Idea Forge",
-  "demoModal.body": "Aplikacja pozwala przetestować funkcję analizy pomysłów. Aby zabezpieczyć demo przed nadużyciami, obowiązuje limit {{limit}} analiz na jeden adres IP.",
+  "demoModal.body": "Aplikacja pozwala przetestować funkcję analizy pomysłów. Aby zabezpieczyć demo przed nadużyciami, obowiązuje limit 6 analiz na jeden adres IP.",
   "demoModal.remainingLabel": "Pozostało Ci:",
   "demoModal.analysesLeft": "analiz",
   "demoModal.privacyNote": "Na potrzeby obsługi limitu aplikacja używa plików cookies oraz zapisuje adres IP po stronie serwera. Szczegóły znajdziesz w polityce prywatności.",
