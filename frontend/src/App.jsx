@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 
 import {
@@ -313,7 +313,7 @@ export default function App() {
   // and only the active one is mounted.
   // ─────────────────────────────────────────────────────────────────────────
 
-  function IdeaView() {
+  function renderIdeaView() {
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="grid flex-1 min-h-0 grid-cols-1 gap-6 overflow-y-auto px-4 py-6 md:px-6 md:py-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
@@ -368,7 +368,7 @@ export default function App() {
     );
   }
 
-  function AnalysisView() {
+  function renderAnalysisView() {
     return (
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-6 md:py-8">
@@ -386,7 +386,7 @@ export default function App() {
     );
   }
 
-  function DecisionMemoView() {
+  function renderDecisionMemoView() {
     if (!currentRun) {
       return (
         <div className="flex-1 min-h-0 overflow-y-auto">
@@ -407,7 +407,7 @@ export default function App() {
     );
   }
 
-  function HistoryView() {
+  function renderHistoryView() {
     return (
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
@@ -422,14 +422,14 @@ export default function App() {
     );
   }
 
-  function ActiveTabContent() {
+  function renderActiveTabContent() {
     switch (nav) {
       case 'analysis':
-        return <AnalysisView />;
+        return renderAnalysisView();
       case 'memo':
-        return <DecisionMemoView />;
+        return renderDecisionMemoView();
       case 'history':
-        return <HistoryView />;
+        return renderHistoryView();
       case 'settings':
         return (
           <div className="flex-1 min-h-0 overflow-y-auto">
@@ -448,7 +448,7 @@ export default function App() {
         );
       case 'idea':
       default:
-        return <IdeaView />;
+        return renderIdeaView();
     }
   }
 
@@ -456,7 +456,7 @@ export default function App() {
     <AppShell activeNav={nav} onNavChange={setNav} headerExtras={headerExtras}>
       {/* Demo quota modal — shown once per session */}
       <DemoQuotaModal quotaInfo={quotaInfo} onClose={() => fetchQuotaInfo()} />
-      <ActiveTabContent />
+      {renderActiveTabContent()}
     </AppShell>
   );
 }

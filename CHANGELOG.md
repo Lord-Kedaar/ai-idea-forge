@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Fixed
+- **Utrata focusu w polach edycji** — `frontend/src/App.jsx`:
+  - widoki renderowane jako zagnieżdżone komponenty (`<ActiveTabContent />`, `<IdeaView />`) powodowały remount całego subtree po każdym znaku,
+  - zmienione na zwykłe helpery renderujące (`renderActiveTabContent()`, `renderIdeaView()`), dzięki czemu React zachowuje DOM textarea i focus podczas pisania.
+
 - **Limity znakow** — `frontend/src/components/IdeaInputForm.jsx`:
   - `idea` textarea: `maxLength={5000}` → `maxLength={1000}`
 
