@@ -45,12 +45,9 @@ function buildProviderConfig(providerId, env) {
 
 const _providerCache = new Map();
 
-function getProviderForAgent(agentId, env) {
-  const def = AGENT_DEFINITIONS[agentId];
-  if (!def) throw new Error(`Unknown agent: ${agentId}`);
-  const { provider: providerId, model } = def;
-
-  const cacheKey = `${providerId}:${model}`;
+function getProvider(providerId, env) {
+  if (!providerId) throw new Error('providerId is required');
+  const cacheKey = providerId;
   if (_providerCache.has(cacheKey)) return _providerCache.get(cacheKey);
 
   const config = buildProviderConfig(providerId, env);
@@ -146,7 +143,7 @@ async function executeAgentWithFallback(agentId, state, env, cancelSignal) {
     if (providerId === 'mistral' && !config.apiKey) continue;
 
     try {
-      const provider = getProviderForAgent(agentId, env);
+      const provider = getProvider(providerId, env);
       const agentModel = providerId === primaryProviderId ? model : null;
 
       const callParams = {
