@@ -214,6 +214,13 @@ export function pollRun(runId, { onUpdate, interval = 2000, onError } = {}) {
 export function subscribeRunWithFallback(runId, { onEvent, onUpdate, onError, pollingInterval = 2000 } = {}) {
   let polling = null;
   let closed = false;
+  let safety = null;
+
+  // Prevent double-setup in React StrictMode (double-invocation of useEffect).
+  // If already closed before we set up anything, bail out immediately.
+  if (closed) {
+    return () => { closed = true; clearTimeout(safety); };
+  }
 
   const startPolling = () => {
     if (polling || closed) return;
@@ -225,17 +232,19 @@ export function subscribeRunWithFallback(runId, { onEvent, onUpdate, onError, po
       onEvent?.(type, data);
       if (['run_completed', 'run_failed', 'run_cancelled'].includes(type)) {
         closed = true;
+        clearTimeout(safety);
         sub.close();
         polling?.stop();
       }
     },
     onError: (err) => {
+      if (closed) return;
       startPolling();
       onError?.(err);
     },
   });
 
-  const safety = setTimeout(startPolling, 3000);
+  safety = setTimeout(startPolling, 3000);
 
   return () => {
     closed = true;
