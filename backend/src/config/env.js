@@ -51,6 +51,13 @@ export const env = {
   runTimeoutMs: num(process.env.RUN_TIMEOUT_MS, config.run.runTimeoutMs),
   providerRetryAttempts: num(process.env.PROVIDER_RETRY_ATTEMPTS, config.run.retryAttempts),
 
+  // Demo quota (one-liner kill-switch: change DEMO_QUOTA_MODE in .env or defaults.js)
+  // Values: "limited" | "unlimited"
+  demoQuotaMode: process.env.DEMO_QUOTA_MODE || config.demoQuota?.mode || 'limited',
+  demoQuotaMaxAnalyses: num(process.env.DEMO_QUOTA_MAX_ANALYSES, config.demoQuota?.maxAnalyses || 6),
+  demoQuotaContactEmail: process.env.DEMO_QUOTA_CONTACT_EMAIL || config.demoQuota?.contactEmail || 'kontakt@radoslaw-pleskot.com',
+  demoQuotaCookieName: process.env.DEMO_QUOTA_COOKIE_NAME || config.demoQuota?.cookieName || 'forge_demo_acknowledged',
+
   // Misc
   enableSse: bool(process.env.ENABLE_SSE, config.sse.enable),
   logLevel: process.env.LOG_LEVEL || config.log.level,

@@ -187,5 +187,20 @@
   "copy": "Kopiuj",
   "copied": "Skopiowano",
   "downloadPdf": "Zapisz jako PDF",
-  "downloadMarkdown": "Pobierz Markdown"
+  "downloadMarkdown": "Pobierz Markdown",
+  "demoModal.title": "To jest publiczne demo AI Idea Forge",
+  "demoModal.body": "Aplikacja pozwala przetestować funkcję analizy pomysłów. Aby zabezpieczyć demo przed nadużyciami, obowiązuje limit {{limit}} analiz na jeden adres IP.",
+  "demoModal.remainingLabel": "Pozostało Ci:",
+  "demoModal.analysesLeft": "analiz",
+  "demoModal.privacyNote": "Na potrzeby obsługi limitu aplikacja używa plików cookies oraz zapisuje adres IP po stronie serwera. Szczegóły znajdziesz w polityce prywatności.",
+  "demoModal.understand": "Rozumiem",
+  "demoModal.privacyPolicy": "Polityka prywatności",
+  "demoModal.requestUnlock": "Poproś o odblokowanie limitu",
+  "demoModal.close": "Zamknij",
+  "demoModal.lastRemaining": "{{remaining}} / {{limit}} — ostatnia!",
+  "demoModal.lastAnalysis": "To Twoja ostatnia bezpłatna analiza!",
+  "demoModal.limitReached": "Limit wyczerpany",
+  "demoModal.unlocked": "Demo odblokowane",
+  "demoModal.quotaRemaining": "{{remaining}} / {{limit}} analiz",
+  "demoModal.quotaExceeded": "Limit analiz został wyczerpany. Możesz poprosić o odblokowanie."
 }

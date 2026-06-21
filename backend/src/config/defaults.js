@@ -42,4 +42,11 @@ export const config = {
   log: {
     level: 'info',
   },
+  demoQuota: {
+    mode: 'limited',          // 'limited' = 6 analyses/IP, 'unlimited' = no limit
+    maxAnalyses: 6,
+    contactEmail: 'kontakt@radoslaw-pleskot.com',
+    cookieName: 'forge_demo_acknowledged',
+    storageDir: './data/demo_quota',
+  },
 };

@@ -18,7 +18,7 @@ const DEV_AGENTS = {
     { id: 'pragmatist', name: 'Pragmatist', description: 'Checks feasibility and minimum experiment.' },
     { id: 'redteam', name: 'Red Team', description: 'Runs a pre-mortem and identifies risks.' },
     { id: 'editor', name: 'Editor', description: 'Structures the material and removes repetition.' },
-    { id: 'decider', name: 'Decider', description: 'Creates the recommendation, status, and next step.' },
+    { id: 'decider', name: 'Decider', description: 'Creates the recommendation, decision and next step.' },
   ],
 };
 
@@ -43,7 +43,18 @@ async function fetchJson(path, opts = {}, { onBackendDown } = {}) {
       },
       cache: 'no-store',
     });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      // Surface structured error body for demo quota (429 with JSON)
+      const ct = res.headers.get('content-type') || '';
+      if (res.status === 429 && ct.includes('application/json')) {
+        const body = await res.json().catch(() => ({}));
+        const err = new Error(`${res.status} ${res.statusText}`);
+        err.status = res.status;
+        err.body = body;
+        throw err;
+      }
+      throw new Error(`${res.status} ${res.statusText}`);
+    }
     return { data: await res.json(), ok: true };
   } catch (e) {
     onBackendDown?.(e);
@@ -73,6 +84,16 @@ export async function getWorkflows(onBackendDown) {
   return r.data;
 }
 
+/**
+ * getDemoQuota — fetch current demo quota status for this IP.
+ * Does NOT consume a count. Returns null on network failure.
+ */
+export async function getDemoQuota() {
+  const r = await fetchJson('/api/demo-quota', {}, {});
+  if (!r.ok) return null;
+  return r.data;
+}
+
 export async function createRun({ workflowType, idea, context, constraints, language }) {
   const res = await fetch(`${API_BASE}/api/forge/runs`, {
     method: 'POST',
@@ -80,7 +101,18 @@ export async function createRun({ workflowType, idea, context, constraints, lang
     body: JSON.stringify({ workflowType, idea, context, constraints, language }),
     cache: 'no-store',
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    const ct = res.headers.get('content-type') || '';
+    if (res.status === 429 && ct.includes('application/json')) {
+      const body = await res.json().catch(() => ({}));
+      const err = new Error(`${res.status} ${res.statusText}`);
+      err.status = res.status;
+      err.body = body;
+      err.quotaExceeded = body?.error === 'demo_quota_exceeded';
+      throw err;
+    }
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
   return res.json();
 }
 
@@ -133,8 +165,8 @@ export function subscribeRunEvents(runId, { onEvent, onError } = {}) {
     return { source: null, close: () => {} };
   }
 
-  // Backend writes events as `data: {"type": "<name>", ...}\n\n` (single message stream).
-  // Use onmessage and route by `payload.type`. `event:` (named events) are NOT used by backend.
+  // Backend writes events as: data: {"type": "<name>", ...}\n\n (SSE data-only stream).
+  // Use onmessage and route by payload.type. event: named events are NOT used by backend.
   es.onmessage = (event) => {
     try {
       const payload = JSON.parse(event.data);

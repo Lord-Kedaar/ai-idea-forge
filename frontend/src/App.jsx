@@ -6,6 +6,7 @@ import {
   createRun,
   deleteRun,
   getDecisionMemo,
+  getDemoQuota,
   getRun,
   getRunsList,
   getWorkflows,
@@ -23,6 +24,7 @@ import { RunsHistoryPanel } from './components/RunsHistoryPanel';
 import { BackendStatus } from './components/BackendStatus';
 import { PlaceholderView } from './components/PlaceholderView';
 import { IdeaActionBar } from './components/IdeaActionBar';
+import { DemoQuotaModal, QuotaBadge } from './components/DemoQuotaModal';
 
 const AGENT_IDS = ['generator', 'skeptic', 'pragmatist', 'redteam', 'editor', 'decider'];
 const FINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
@@ -85,6 +87,10 @@ export default function App() {
   const [workflows, setWorkflows] = useState([]);
   const [runs, setRuns] = useState([]);
 
+  // Demo quota
+  const [quotaInfo, setQuotaInfo] = useState(null);
+  const [quotaError, setQuotaError] = useState(null);
+
   const [idea, setIdea] = useState('');
   const [workflowType, setWorkflowType] = useState('decision_memo');
   const [context, setContext] = useState('');
@@ -109,6 +115,16 @@ export default function App() {
     setBackendError(err);
   };
 
+  async function fetchQuotaInfo() {
+    try {
+      const data = await getDemoQuota();
+      setQuotaInfo(data);
+    } catch {
+      // Non-critical — quota endpoint is optional
+      setQuotaInfo(null);
+    }
+  }
+
   async function refreshBootstrap() {
     const [h, w] = await Promise.all([getHealth(onBackendDown), getWorkflows(onBackendDown)]);
     setHealth(h.ok ? h.data : { status: 'down' });
@@ -129,6 +145,7 @@ export default function App() {
   useEffect(() => {
     refreshBootstrap();
     refreshRuns();
+    fetchQuotaInfo();
     if (typeof window !== 'undefined') {
       localStorage.removeItem('forge.currentRunId');
       if (window.location.hash) window.history.replaceState(null, '', window.location.pathname);
@@ -187,6 +204,7 @@ export default function App() {
 
   async function handleStart() {
     setSubmitError(null);
+    setQuotaError(null);
     if (!idea.trim()) {
       setSubmitError(t('ideaRequiredError'));
       return;
@@ -213,8 +231,16 @@ export default function App() {
       setMemoError(null);
       setNav('analysis');
       refreshRuns();
+      // Refresh quota after a successful start (count was consumed server-side)
+      fetchQuotaInfo();
     } catch (e) {
-      setSubmitError(e.message || t('runError'));
+      if (e.quotaExceeded === true || (e.status === 429 && (e.body?.error === 'demo_quota_exceeded'))) {
+        const displayMsg = t('demoModal.quotaExceeded', 'Limit analiz został wyczerpany. Możesz poprosić o odblokowanie.');
+        setQuotaError(displayMsg);
+        fetchQuotaInfo();
+      } else {
+        setSubmitError(e.message || t('runError'));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -239,6 +265,7 @@ export default function App() {
     setCurrentRun(null);
     setMemo(null);
     setMemoError(null);
+    setQuotaError(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('forge.currentRunId');
       window.history.replaceState(null, '', window.location.pathname);
@@ -261,7 +288,9 @@ export default function App() {
   }
 
   const activeWorkflow = workflows.find((w) => w.id === workflowType);
-  const canStart = idea.trim().length > 0 && !submitting && !backendDown && !currentRun;
+  // Disable start if: no idea, already running, backend down, quota exceeded
+  const quotaExceeded = quotaInfo?.exceeded === true && quotaInfo?.mode === 'limited';
+  const effectiveCanStart = idea.trim().length > 0 && !submitting && !backendDown && !currentRun && !quotaExceeded;
 
   const headerExtras = (
     <div className="flex items-center gap-3">
@@ -289,6 +318,11 @@ export default function App() {
       <div className="flex h-full min-h-0 flex-col">
         <div className="grid flex-1 min-h-0 grid-cols-1 gap-6 overflow-y-auto px-4 py-6 md:px-6 md:py-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
           <div className="space-y-6 min-w-0">
+            {/* Quota badge — subtle info strip */}
+            <div className="flex justify-end">
+              <QuotaBadge quotaInfo={quotaInfo} />
+            </div>
+
             <IdeaInputForm
               idea={idea}
               setIdea={setIdea}
@@ -307,9 +341,9 @@ export default function App() {
               setCriticismLevel={setCriticismLevel}
               priority={priority}
               setPriority={setPriority}
-              canStart={canStart}
+              canStart={effectiveCanStart}
               submitting={submitting}
-              submitError={null}
+              submitError={quotaError || submitError}
               onStart={handleStart}
               disabled={!!currentRun || backendDown}
             />
@@ -323,10 +357,10 @@ export default function App() {
 
         <IdeaActionBar
           selectedWorkflow={activeWorkflow}
-          canStart={canStart}
+          canStart={effectiveCanStart}
           canClear={!currentRun && !backendDown && (idea.trim() || context.trim() || constraints.trim() || extraInstructions.trim())}
           isStarting={submitting}
-          submitError={submitError}
+          submitError={quotaError || submitError}
           onClear={handleClearForm}
           onStart={handleStart}
         />
@@ -420,6 +454,8 @@ export default function App() {
 
   return (
     <AppShell activeNav={nav} onNavChange={setNav} headerExtras={headerExtras}>
+      {/* Demo quota modal — shown once per session */}
+      <DemoQuotaModal quotaInfo={quotaInfo} onClose={() => fetchQuotaInfo()} />
       <ActiveTabContent />
     </AppShell>
   );

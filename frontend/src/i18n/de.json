@@ -187,5 +187,20 @@
   "copy": "Kopieren",
   "copied": "Kopiert",
   "downloadPdf": "Als PDF speichern",
-  "downloadMarkdown": "Markdown laden"
+  "downloadMarkdown": "Markdown laden",
+  "demoModal.title": "Dies ist ein öffentliches Demo von AI Idea Forge",
+  "demoModal.body": "Die App ermöglicht es, die Ideenanalayse-Funktion zu testen. Zum Schutz des Demos vor Missbrauch gilt ein Limit von {{limit}} Analysen pro IP-Adresse.",
+  "demoModal.remainingLabel": "Verbleibend:",
+  "demoModal.analysesLeft": "Analysen",
+  "demoModal.privacyNote": "Zur Durchsetzung des Limits nutzt die App Cookies und speichert Ihren IP-Adress-Hash auf dem Server. Details finden Sie in der Datenschutzrichtlinie.",
+  "demoModal.understand": "Ich verstehe",
+  "demoModal.privacyPolicy": "Datenschutzrichtlinie",
+  "demoModal.requestUnlock": "Limit-Entsperrung anfordern",
+  "demoModal.close": "Schließen",
+  "demoModal.lastRemaining": "{{remaining}} / {{limit}} — letzte!",
+  "demoModal.lastAnalysis": "Dies ist Ihre letzte kostenlose Analyse!",
+  "demoModal.limitReached": "Limit erreicht",
+  "demoModal.unlocked": "Demo entsperrt",
+  "demoModal.quotaRemaining": "{{remaining}} / {{limit}} Analysen",
+  "demoModal.quotaExceeded": "Das Analyse-Limit wurde ausgeschöpft. Sie können eine Entsperrung anfordern."
 }
