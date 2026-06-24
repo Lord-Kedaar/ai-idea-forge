@@ -195,12 +195,14 @@
   "demoModal.privacyNote": "To enforce the limit, the app uses cookies and stores your IP address hash on the server. See the privacy policy for details.",
   "demoModal.understand": "I understand",
   "demoModal.privacyPolicy": "Privacy Policy",
+  "demoModal.projectDescription": "Project description",
   "demoModal.requestUnlock": "Request limit unlock",
   "demoModal.close": "Close",
   "demoModal.lastRemaining": "{{remaining}} / {{limit}} — last one!",
   "demoModal.lastAnalysis": "This is your last free analysis!",
   "demoModal.limitReached": "Limit reached",
   "demoModal.unlocked": "Demo unlocked",
+  "demoModal.noLimit": "no limit",
   "demoModal.quotaRemaining": "{{remaining}} / {{limit}} analyses",
   "demoModal.quotaExceeded": "The analysis limit has been exhausted. You can request an unlock."
 }

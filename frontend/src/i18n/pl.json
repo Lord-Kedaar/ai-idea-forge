@@ -195,12 +195,14 @@
   "demoModal.privacyNote": "Na potrzeby obsługi limitu aplikacja używa plików cookies oraz zapisuje adres IP po stronie serwera. Szczegóły znajdziesz w polityce prywatności.",
   "demoModal.understand": "Rozumiem",
   "demoModal.privacyPolicy": "Polityka prywatności",
+  "demoModal.projectDescription": "Opis projektu",
   "demoModal.requestUnlock": "Poproś o odblokowanie limitu",
   "demoModal.close": "Zamknij",
   "demoModal.lastRemaining": "{{remaining}} / {{limit}} — ostatnia!",
   "demoModal.lastAnalysis": "To Twoja ostatnia bezpłatna analiza!",
   "demoModal.limitReached": "Limit wyczerpany",
   "demoModal.unlocked": "Demo odblokowane",
+  "demoModal.noLimit": "brak limitu",
   "demoModal.quotaRemaining": "{{remaining}} / {{limit}} analiz",
   "demoModal.quotaExceeded": "Limit analiz został wyczerpany. Możesz poprosić o odblokowanie."
 }

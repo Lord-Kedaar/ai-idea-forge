@@ -121,12 +121,20 @@ export function DemoQuotaModal({ quotaInfo, onClose }) {
 
           <div className="flex items-center justify-between gap-2">
             <a
-              href="/privacy"
+              href="https://radoslaw-pleskot.com/pl/privacy/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline transition-colors"
             >
               {t('demoModal.privacyPolicy', 'Polityka prywatności')}
+            </a>
+            <a
+              href="https://radoslaw-pleskot.com/projekty/ai-idea-forge/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline transition-colors"
+            >
+              {t('demoModal.projectDescription', 'Opis projektu')}
             </a>
             <a
               href={mailtoHref}
@@ -143,13 +151,12 @@ export function DemoQuotaModal({ quotaInfo, onClose }) {
 
 /**
  * QuotaBadge — subtle indicator shown in IdeaActionBar or IdeaView.
- * Hidden in unlimited mode.
  *
  * States:
  *  - limited + has quota: "5 / 6 analiz"
  *  - limited + last analysis: "1 / 6 — ostatnia!"
  *  - limited + exceeded: "Limit wyczerpany"
- *  - unlimited: null (don't render)
+ *  - unlimited: "brak limitu"
  */
 export function QuotaBadge({ quotaInfo }) {
   const { t } = useI18n();
@@ -158,7 +165,7 @@ export function QuotaBadge({ quotaInfo }) {
   if (quotaInfo.mode === 'unlimited') {
     return (
       <span className="text-xs text-muted-foreground italic">
-        {t('demoModal.unlocked', 'Demo odblokowane')}
+        {t('demoModal.noLimit', 'brak limitu')}
       </span>
     );
   }

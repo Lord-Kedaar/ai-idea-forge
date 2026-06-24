@@ -195,12 +195,14 @@
   "demoModal.privacyNote": "Zur Durchsetzung des Limits nutzt die App Cookies und speichert Ihren IP-Adress-Hash auf dem Server. Details finden Sie in der Datenschutzrichtlinie.",
   "demoModal.understand": "Ich verstehe",
   "demoModal.privacyPolicy": "Datenschutzrichtlinie",
+  "demoModal.projectDescription": "Projektbeschreibung",
   "demoModal.requestUnlock": "Limit-Entsperrung anfordern",
   "demoModal.close": "Schließen",
   "demoModal.lastRemaining": "{{remaining}} / {{limit}} — letzte!",
   "demoModal.lastAnalysis": "Dies ist Ihre letzte kostenlose Analyse!",
   "demoModal.limitReached": "Limit erreicht",
   "demoModal.unlocked": "Demo entsperrt",
+  "demoModal.noLimit": "kein Limit",
   "demoModal.quotaRemaining": "{{remaining}} / {{limit}} Analysen",
   "demoModal.quotaExceeded": "Das Analyse-Limit wurde ausgeschöpft. Sie können eine Entsperrung anfordern."
 }
