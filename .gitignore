@@ -12,3 +12,11 @@ data/runs/
 *.backup-*
 *.bak-*
 *.bak
+
+# Internal agent workflow / reports — never commit
+METRICUS_*.md
+STATE_LOG*.md
+STATE_LOG*.txt
+*_POLISH_REPORT.md
+*_POLISH_FIX_REPORT.md
+*_REPORT.md
