@@ -56,7 +56,7 @@ export function RunsHistoryPanel({ runs = [], onOpen, onDelete, onRefresh }) {
                       type="button"
                       className="btn btn-ghost btn-sm"
                       onClick={() => onOpen(run.runId)}
-                      aria-label="Otwórz"
+                      aria-label={t('open')}
                     >
                       <Eye className="h-3.5 w-3.5" />
                     </button>
@@ -66,7 +66,7 @@ export function RunsHistoryPanel({ runs = [], onOpen, onDelete, onRefresh }) {
                       type="button"
                       className="btn btn-ghost btn-sm text-destructive"
                       onClick={() => onDelete(run.runId)}
-                      aria-label="Usuń"
+                      aria-label={t('delete')}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
