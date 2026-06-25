@@ -110,7 +110,7 @@ export function DemoQuotaModal({ quotaInfo, onClose }) {
           <button
             type="button"
             onClick={handleAcknowledge}
-            className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            className="self-start rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             {t('demoModal.understand', 'Rozumiem')}
           </button>
