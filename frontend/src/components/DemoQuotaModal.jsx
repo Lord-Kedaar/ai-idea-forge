@@ -56,12 +56,12 @@ export function DemoQuotaModal({ quotaInfo, onClose }) {
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:justify-end sm:px-6"
+      className="shrink-0 border-b border-border bg-background/95 px-4 py-3 md:px-6"
       role="region"
       aria-labelledby="demo-modal-title"
     >
-      {/* Non-blocking notice panel: no full-screen backdrop, so app buttons stay clickable. */}
-      <div className="pointer-events-auto w-full max-w-md rounded-xl border border-border bg-background/95 shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-background/85">
+      {/* Non-blocking notice: normal document flow, no overlay, no fixed layer. */}
+      <div className="mx-auto w-full max-w-[1400px] rounded-xl border border-border bg-card/80 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/70">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 p-6 pb-4">
           <div>
