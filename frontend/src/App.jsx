@@ -374,7 +374,12 @@ export default function App() {
         <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-6 md:py-8">
           {backendDown && <BackendStatus down={backendDown} error={backendError} onRetry={refreshBootstrap} />}
           {currentRun ? (
-            <AnalysisProgress run={currentRun} onStop={handleStop} stopping={stopping} />
+            <AnalysisProgress
+              run={currentRun}
+              onStop={handleStop}
+              stopping={stopping}
+              onGoToMemo={() => setNav('memo')}
+            />
           ) : (
             <div className="rounded-md border border-dashed border-border bg-background/40 p-10 text-center text-sm text-muted-foreground">
               {t('memoWaiting')}
@@ -405,7 +410,6 @@ export default function App() {
             run={currentRun}
             memo={memo}
             memoError={memoError}
-            onGoToAnalysis={() => setNav('analysis')}
           />
         </div>
       </div>

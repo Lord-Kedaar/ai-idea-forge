@@ -1,4 +1,4 @@
-import { Loader2, Square, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { Loader2, Square, CheckCircle2, XCircle, AlertCircle, FileText } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
 import { cn } from '../utils';
 
@@ -23,7 +23,7 @@ const STATUS_TONE = {
 /**
  * AnalysisProgress — show stages of the current run, with stop button.
  */
-export function AnalysisProgress({ run, onStop, stopping }) {
+export function AnalysisProgress({ run, onStop, stopping, onGoToMemo }) {
   const { t } = useI18n();
   if (!run) return null;
 
@@ -54,6 +54,15 @@ export function AnalysisProgress({ run, onStop, stopping }) {
             disabled={stopping}
           >
             <Square className="h-3.5 w-3.5" /> {t('stop', { defaultValue: 'Zatrzymaj' })}
+          </button>
+        )}
+        {(status === 'completed' || status === 'success') && onGoToMemo && (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={onGoToMemo}
+          >
+            <FileText className="h-3.5 w-3.5" /> {t('goToResults')}
           </button>
         )}
       </div>

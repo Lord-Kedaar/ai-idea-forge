@@ -289,5 +289,6 @@ export default {
   "statusLabel.completed": "Completed",
   "statusLabel.success": "Completed",
   "statusLabel.failed": "Failed",
-  "statusLabel.cancelled": "Cancelled"
+  "statusLabel.cancelled": "Cancelled",
+  "goToResults": "View results"
 };

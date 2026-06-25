@@ -13,7 +13,6 @@ import {
   Clock,
   Cpu,
   ArrowRight,
-  Activity,
 } from 'lucide-react';
 import { renderMarkdown } from '../markdown';
 import { useI18n } from '../i18n/I18nProvider';
@@ -95,7 +94,7 @@ function formatElapsed(iso) {
  * DecisionMemoPanel — renders the decision memo as a hero card with a
  * recommendation badge, then grid of section cards with Lucide icons.
  */
-export function DecisionMemoPanel({ run, memo, memoError, onGoToAnalysis }) {
+export function DecisionMemoPanel({ run, memo, memoError }) {
   const { t, lang } = useI18n();
   const parsed = useMemo(() => parseMemoSections(memo), [memo]);
 
@@ -208,20 +207,6 @@ export function DecisionMemoPanel({ run, memo, memoError, onGoToAnalysis }) {
             </div>
           )}
 
-          {/* "Go to analysis" button — only when run is completed and a handler was provided */}
-          {run?.status === 'completed' && onGoToAnalysis && (
-            <div>
-              <button
-                type="button"
-                onClick={onGoToAnalysis}
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
-              >
-                <Activity className="h-4 w-4" aria-hidden="true" />
-                {t('goToAnalysis')}
-              </button>
-              <p className="mt-1.5 text-xs text-muted-foreground">{t('goToAnalysisHint')}</p>
-            </div>
-          )}
         </div>
       </div>
 
