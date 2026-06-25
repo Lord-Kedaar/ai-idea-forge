@@ -283,5 +283,11 @@ export default {
   "section_Następny_krok": "Next step",
   "quotaRemaining": "You have {n} / {max} runs remaining today",
   "quotaExhausted": "Daily run limit reached ({max}). Try again tomorrow.",
-  "maxLength": "Maximum 1000 characters."
+  "maxLength": "Maximum 1000 characters.",
+  "statusLabel.pending": "Pending",
+  "statusLabel.running": "Running",
+  "statusLabel.completed": "Completed",
+  "statusLabel.success": "Completed",
+  "statusLabel.failed": "Failed",
+  "statusLabel.cancelled": "Cancelled"
 };

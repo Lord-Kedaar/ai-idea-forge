@@ -283,5 +283,11 @@
   "section_Następny_krok": "Następny krok",
   "quotaRemaining": "Zostało Ci {n} / {max} uruchomień dziś",
   "quotaExhausted": "Osiągnięto dzienny limit uruchomień ({max}). Spróbuj ponownie jutro.",
-  "maxLength": "Maksymalnie 1000 znaków."
+  "maxLength": "Maksymalnie 1000 znaków.",
+  "statusLabel.pending": "Oczekiwanie",
+  "statusLabel.running": "W toku",
+  "statusLabel.completed": "Zakończona",
+  "statusLabel.success": "Zakończona",
+  "statusLabel.failed": "Błąd",
+  "statusLabel.cancelled": "Anulowana"
 }

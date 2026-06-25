@@ -283,5 +283,11 @@
   "section_Następny_krok": "Nächster Schritt",
   "quotaRemaining": "Du hast noch {n} / {max} Runs heute",
   "quotaExhausted": "Tägliches Run-Limit erreicht ({max}). Versuche es morgen erneut.",
-  "maxLength": "Maximal 1000 Zeichen."
+  "maxLength": "Maximal 1000 Zeichen.",
+  "statusLabel.pending": "Wartet",
+  "statusLabel.running": "Läuft",
+  "statusLabel.completed": "Abgeschlossen",
+  "statusLabel.success": "Abgeschlossen",
+  "statusLabel.failed": "Fehler",
+  "statusLabel.cancelled": "Abgebrochen"
 }
