@@ -106,6 +106,7 @@
   "memoWaiting": "Memo erscheint nach Abschluss der Agenten.",
   "memoError": "Memo konnte nicht geladen werden: {{error}}",
   "myRuns": "Analyse-Verlauf",
+  "historyTitle": "Verlauf",
   "runsHistory": "",
   "refresh": "Aktualisieren",
   "filterAll": "Alle",

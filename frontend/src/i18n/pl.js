@@ -106,6 +106,7 @@ export default {
   "memoWaiting": "Memo pojawi się po zakończeniu pracy agentów.",
   "memoError": "Nie udało się pobrać memo: {{error}}",
   "myRuns": "Historia analiz",
+  "historyTitle": "Historia",
   "runsHistory": "",
   "refresh": "Odśwież",
   "filterAll": "Wszystkie",

@@ -106,6 +106,7 @@ export default {
   "memoWaiting": "Memo will appear after the agents finish.",
   "memoError": "Could not retrieve memo: {{error}}",
   "myRuns": "Analysis history",
+  "historyTitle": "History",
   "runsHistory": "",
   "refresh": "Refresh",
   "filterAll": "All",

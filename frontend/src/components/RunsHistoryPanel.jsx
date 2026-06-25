@@ -27,7 +27,7 @@ export function RunsHistoryPanel({ runs = [], onOpen, onDelete, onRefresh }) {
           </h2>
         </div>
         {onRefresh && (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onRefresh} aria-label="Odśwież">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onRefresh} aria-label={t('refresh')}>
             <RefreshCw className="h-3.5 w-3.5" />
           </button>
         )}
