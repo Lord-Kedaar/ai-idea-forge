@@ -198,11 +198,11 @@
   "demoModal.projectDescription": "Opis projektu",
   "demoModal.requestUnlock": "Poproś o odblokowanie limitu",
   "demoModal.close": "Zamknij",
-  "demoModal.lastRemaining": "{{remaining}} / {{limit}} — ostatnia!",
+  "demoModal.lastRemaining": "ostatnia!",
   "demoModal.lastAnalysis": "To Twoja ostatnia bezpłatna analiza!",
   "demoModal.limitReached": "Limit wyczerpany",
   "demoModal.unlocked": "Demo odblokowane",
   "demoModal.noLimit": "brak limitu",
-  "demoModal.quotaRemaining": "{{remaining}} / {{limit}} analiz",
+  "demoModal.quotaRemaining": "analiz",
   "demoModal.quotaExceeded": "Limit analiz został wyczerpany. Możesz poprosić o odblokowanie."
 }

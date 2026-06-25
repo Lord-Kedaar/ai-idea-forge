@@ -55,12 +55,12 @@ export function demoQuotaConfig() {
 
 /**
  * Returns a pseudo-anonymous IP identifier.
- * - For direct connections: hash of (IP + User-Agent) so the same user on different
- *   days still counts toward the same bucket without storing raw IP.
- * - For proxy connections with X-Forwarded-For: the first IP is used directly
- *   (already disclosed by the proxy), hashed with UA.
- *
- * We store only the hash, never the raw IP.
+ * - Uses the resolved client IP (X-Forwarded-For first hop, then X-Real-IP,
+ *   then socket remoteAddress), hashed via SHA-256 truncated to 32 hex chars.
+ * - We deliberately do NOT mix User-Agent into the hash. A demo quota keyed on
+ *   IP+UA would reset on UA changes, which defeats "per-IP" enforcement and
+ *   would let any visitor bypass the limit by switching browser identity.
+ *   The hash already protects raw IP from leaking to disk.
  */
 export function getClientIpHash(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -76,8 +76,7 @@ export function getClientIpHash(req) {
     ip = remoteAddr;
   }
 
-  const ua = req.headers['user-agent'] || '';
-  return createHash('sha256').update(`${ip}::${ua}`).digest('hex').slice(0, 32);
+  return createHash('sha256').update(ip).digest('hex').slice(0, 32);
 }
 
 // ── Storage ──────────────────────────────────────────────────────────────────

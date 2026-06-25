@@ -180,17 +180,25 @@ export function QuotaBadge({ quotaInfo }) {
     );
   }
 
+  // Build the badge text inline. We avoid t() {{var}} interpolation here because
+  // the regex-based substitution was fragile (intermittent display of
+  // `{{remaining{{ / {{limit{{ analiz` in dist). Numeric values are templated
+  // directly; i18n keys hold only the translatable word.
+  const unitLabel = t('demoModal.quotaRemaining', 'analiz');
+  const lastAnalysisTitle = t('demoModal.lastAnalysis', 'To Twoja ostatnia bezpłatna analiza!');
+  const lastSuffix = t('demoModal.lastRemaining', 'ostatnia!');
+
   if (remaining === 1) {
     return (
-      <span className="text-xs font-medium text-amber-500" title={t('demoModal.lastAnalysis', 'To Twoja ostatnia bezpłatna analiza!')}>
-        {t('demoModal.lastRemaining', '1 / {{limit}} — ostatnia!', { limit })}
+      <span className="text-xs font-medium text-amber-500" title={lastAnalysisTitle}>
+        {`1 / ${limit} — ${lastSuffix}`}
       </span>
     );
   }
 
   return (
     <span className="text-xs text-muted-foreground tabular-nums">
-      {t('demoModal.quotaRemaining', '{{remaining}} / {{limit}} analiz', { remaining, limit })}
+      {`${remaining} / ${limit} ${unitLabel}`}
     </span>
   );
 }
