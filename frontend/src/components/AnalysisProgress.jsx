@@ -34,13 +34,16 @@ export function AnalysisProgress({ run, onStop, stopping }) {
   const isFinal = ['completed', 'success', 'failed', 'cancelled'].includes(status);
   const spinning = status === 'running' || status === 'pending';
 
+  // Localize the status text via flat key `statusLabel.<status>`; fall back to raw status
+  const statusText = t(`statusLabel.${status}`) !== `statusLabel.${status}` ? t(`statusLabel.${status}`) : status;
+
   return (
     <div className="card">
       <div className="card-header">
         <div className="flex items-center gap-2">
           <Icon className={cn('h-4 w-4', tone, spinning && 'animate-spin')} aria-hidden="true" />
           <h2 className="text-base font-semibold tracking-tight text-foreground">
-            {t('runStatus', { defaultValue: 'Status' })}: {status}
+            {t('analysisStatus')}: <span className={cn('font-normal', tone)}>{statusText}</span>
           </h2>
         </div>
         {!isFinal && onStop && (
@@ -71,7 +74,9 @@ export function AnalysisProgress({ run, onStop, stopping }) {
                     aria-hidden="true"
                   />
                   <span className="text-foreground/90">{stage.agent}</span>
-                  <span className="text-xs text-muted-foreground">— {stageStatus}</span>
+                  <span className="text-xs text-muted-foreground">
+                    — {t(`statusLabel.${stageStatus}`) !== `statusLabel.${stageStatus}` ? t(`statusLabel.${stageStatus}`) : stageStatus}
+                  </span>
                 </li>
               );
             })}

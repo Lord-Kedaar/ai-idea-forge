@@ -401,7 +401,12 @@ export default function App() {
     return (
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
-          <DecisionMemoPanel run={currentRun} memo={memo} memoError={memoError} />
+          <DecisionMemoPanel
+            run={currentRun}
+            memo={memo}
+            memoError={memoError}
+            onGoToAnalysis={() => setNav('analysis')}
+          />
         </div>
       </div>
     );
