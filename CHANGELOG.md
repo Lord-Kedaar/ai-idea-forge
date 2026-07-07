@@ -33,6 +33,10 @@
   - Duplikat labela `Idea / Problem / Decyzja` usunięty z `card-header` formularza.
 
 ### Changed
+- **Favicon + Apple touch icon** — `frontend/public/`:
+  - Dodane pliki: `favicon.ico`, `favicon-light.svg`, `favicon-dark.svg`, `apple-touch-icon.png`, `favicon-{16,32,48,64,192,512}.png` z paczki `favicon_pack_portfolio_projects_v2`.
+  - `frontend/index.html`: dodane tagi `<link rel="icon">` z `media="(prefers-color-scheme: light|dark)"`, `<link rel="icon" href="/favicon.ico" sizes="any">` i `<link rel="apple-touch-icon">`.
+  - UI zachowuje dotychczasową logikę dark/light (CSS variables), tagi jedynie wskazują właściwą ikonę przeglądarce.
 - **Hierarchia borderów** — `frontend/src/index.css`:
   - Nowe tokeny `--border-strong` (dark: 240 3.7% 23%, light: 240 5.9% 78%).
   - Główne granice layoutu (`header.border-b`, `aside.border-r`) używają `--border-strong`.
