@@ -24,4 +24,22 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    port: 5173,
+    host: '0.0.0.0',
+    strictPort: true,
+    allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3210',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/health': {
+        target: 'http://localhost:3210',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
 });
