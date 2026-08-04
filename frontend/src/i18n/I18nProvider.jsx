@@ -6,12 +6,13 @@ import pl from './pl.json';
 const translations = { en, de, pl };
 
 // Detect browser language, return 'en' | 'de' | 'pl'
+// Rule: PL -> pl, DE -> de, EN i wszystko inne -> en (default en)
 function detectBrowserLang() {
-  if (typeof navigator === 'undefined') return 'pl';
+  if (typeof navigator === 'undefined') return 'en';
   const lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
   if (lang.startsWith('de')) return 'de';
-  if (lang.startsWith('en')) return 'en';
-  return 'pl';
+  if (lang.startsWith('pl')) return 'pl';
+  return 'en';
 }
 
 const I18nContext = createContext(null);
@@ -23,7 +24,7 @@ export function I18nProvider({ children }) {
       if (stored && translations[stored]) return stored;
       return detectBrowserLang();
     }
-    return 'pl';
+    return 'en';
   });
 
   useEffect(() => {

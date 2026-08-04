@@ -17,7 +17,10 @@ import { useI18n } from '../i18n/I18nProvider';
  *  hidden   → never shown again (cookie present, or mode=unlimited)
  */
 export function DemoQuotaModal({ quotaInfo, onClose }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  // Linki per język (zweryfikowane: /pl|/en|/de/privacy/ + projekty z prefiksem językowym poza PL)
+  const privacyHref = `https://radoslaw-pleskot.com/${lang}/privacy/`;
+  const aboutHref = `https://radoslaw-pleskot.com/${lang === 'pl' ? '' : `${lang}/`}projekty/ai-idea-forge/`;
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -117,7 +120,7 @@ export function DemoQuotaModal({ quotaInfo, onClose }) {
 
           <div className="flex items-center justify-between gap-2">
             <a
-              href="https://radoslaw-pleskot.com/pl/privacy/"
+              href={privacyHref}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline transition-colors"
@@ -125,7 +128,7 @@ export function DemoQuotaModal({ quotaInfo, onClose }) {
               {t('demoModal.privacyPolicy', 'Polityka prywatności')}
             </a>
             <a
-              href="https://radoslaw-pleskot.com/projekty/ai-idea-forge/"
+              href={aboutHref}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline transition-colors"

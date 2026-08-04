@@ -11,7 +11,10 @@ const NAV = [
 ];
 
 export function SidebarNav({ active, onChange }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  // Linki per język (zweryfikowane: /pl|/en|/de/privacy/ + projekty z prefiksem językowym poza PL)
+  const privacyHref = `https://radoslaw-pleskot.com/${lang}/privacy/`;
+  const aboutHref = `https://radoslaw-pleskot.com/${lang === 'pl' ? '' : `${lang}/`}projekty/ai-idea-forge/`;
   return (
     <aside className="flex flex-col h-full">
       {/* Brand — mirrors OpenDesign sidebar-brand */}
@@ -92,8 +95,8 @@ export function SidebarNav({ active, onChange }) {
           ))}
         </nav>
         <div className="separator my-3" role="separator" aria-hidden="true" />
-        <a className="sidebar-link" href="https://radoslaw-pleskot.com/pl/privacy/" target="_blank" rel="noopener noreferrer">{t('footer.privacy')}</a>
-        <a className="sidebar-link" href="https://radoslaw-pleskot.com/projekty/ai-idea-forge/" target="_blank" rel="noopener noreferrer">{t('footer.about')}</a>
+        <a className="sidebar-link" href={privacyHref} target="_blank" rel="noopener noreferrer">{t('footer.privacy')}</a>
+        <a className="sidebar-link" href={aboutHref} target="_blank" rel="noopener noreferrer">{t('footer.about')}</a>
         <p className="px-3 pt-1 text-[11px] text-muted-foreground/70">{t('footer.copyright')}</p>
       </div>
     </aside>
