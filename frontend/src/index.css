@@ -167,7 +167,8 @@
     @apply inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs font-medium;
   }
   .badge-status[data-state='running'] { @apply text-foreground; }
-  .badge-status[data-state='completed'] { @apply text-foreground; }
+  .badge-status[data-state='completed'] { @apply border-emerald-500/40 text-emerald-500; }
+  .badge-status[data-state='success'] { @apply border-emerald-500/40 text-emerald-500; }
   .badge-status[data-state='failed'] { @apply border-destructive/40 text-destructive; }
   .badge-status[data-state='cancelled'] { @apply text-muted-foreground; }
 
@@ -262,7 +263,8 @@
     @apply inline-block h-2 w-2 rounded-full bg-muted-foreground;
   }
   .status-dot[data-state='running'] { @apply bg-foreground animate-pulse; }
-  .status-dot[data-state='completed'] { @apply bg-foreground; }
+  .status-dot[data-state='completed'] { @apply bg-emerald-500; }
+  .status-dot[data-state='success'] { @apply bg-emerald-500; }
   .status-dot[data-state='failed'] { @apply bg-destructive; }
 
   .scroll-area {

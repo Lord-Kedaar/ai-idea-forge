@@ -111,31 +111,32 @@ export function AnalysisProgress({ run, onStop, stopping, onGoToMemo }) {
           </p>
         )}
 
-        {canStop && onStop && (
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm w-full mt-2"
-            onClick={onStop}
-            disabled={stopping}
-          >
-            {stopping ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Square className="h-3.5 w-3.5" />
-            )}
-            {stopping ? t('stoppingButton') : t('stopRun')}
-          </button>
-        )}
-
         {canGoToMemo && (
-          <button
-            type="button"
-            className="btn btn-primary btn-sm w-full mt-2"
-            onClick={onGoToMemo}
-          >
-            <FileText className="h-3.5 w-3.5" />
-            {t('goToResults', { defaultValue: 'Go to results' })}
-          </button>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {canStop && onStop && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={onStop}
+                disabled={stopping}
+              >
+                {stopping ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Square className="h-3.5 w-3.5" />
+                )}
+                {stopping ? t('stoppingButton') : t('stopRun')}
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={onGoToMemo}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              {t('goToResults', { defaultValue: 'Go to results' })}
+            </button>
+          </div>
         )}
       </div>
     </div>

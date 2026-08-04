@@ -8,7 +8,7 @@
  *   pragmatist→ Mistral / mistral-small-2603         reasoningEffort: none
  *   redteam   → Groq / openai/gpt-oss-120b     reasoningEffort: low
  *   editor    → Mistral / mistral-small-2603    reasoningEffort: none
- *   decider   → Mistral / mistral-small-2603    reasoningEffort: low
+ *   decider   → Mistral / mistral-small-2603    reasoningEffort: none
  *   fallback  → oMLX / gemma-4-26B-A4B-it-QAT-MLX-4bit
  */
 
@@ -68,7 +68,9 @@ export const AGENT_DEFINITIONS = {
     name: 'Decydent',
     provider: 'mistral',
     model: 'mistral-small-2603',
-    reasoningEffort: 'low',
+    // UWAGA: mistral-small-2603 wspiera tylko reasoning_effort none|high.
+    // 'low' -> 400 -> fallback na oMLX (Qwen, thinking) -> run 20x wolniejszy (57-60s).
+    reasoningEffort: 'none',
     description: 'Formułuje rekomendację, nadaje status, określa poziom niepewności.',
     expectedOutput: 'Jednoznaczna rekomendacja, status (GO/REVISE/NO-GO/NEEDS_EVIDENCE), następny krok.',
     constraints: ['Bądź jednoznaczny', 'Nie wash language', 'Następny krok musi być akcyjny'],
