@@ -3,9 +3,9 @@
  * Każdy agent ma przypisany provider + model + reasoningEffort.
  *
  * Routing:
- *   generator  → Groq / qwen/qwen3.6-27b         reasoningEffort: none
- *   skeptic   → Groq / qwen/qwen3.6-27b         reasoningEffort: none
- *   pragmatist→ Groq / qwen/qwen3.6-27b         reasoningEffort: none
+ *   generator  → Mistral / mistral-large-2512         (brak reasoning_effort — model odrzuca)
+ *   skeptic   → Mistral / mistral-medium-latest      reasoningEffort: none
+ *   pragmatist→ Mistral / mistral-small-2603         reasoningEffort: none
  *   redteam   → Groq / openai/gpt-oss-120b     reasoningEffort: low
  *   editor    → Mistral / mistral-small-2603    reasoningEffort: none
  *   decider   → Mistral / mistral-small-2603    reasoningEffort: low
@@ -16,9 +16,9 @@ export const AGENT_DEFINITIONS = {
   generator: {
     id: 'generator',
     name: 'Generator',
-    provider: 'groq',
-    model: 'qwen/qwen3.6-27b',
-    reasoningEffort: 'none',
+    provider: 'mistral',
+    model: 'mistral-large-2512',
+    // Uwaga: mistral-large-2512 odrzuca reasoning_effort (400) — nie przekazujemy.
     description: 'Rozwija pomysł, proponuje warianty, szuka szans. Unika przedwczesnej krytyki.',
     expectedOutput: 'Rozwinięty pomysł z 2-3 wariantami, każdy z krótkim uzasadnieniem.',
     constraints: ['Nie krytykuj — tylko rozwijaj', 'Zaproponuj minimum 2 warianty'],
@@ -26,8 +26,8 @@ export const AGENT_DEFINITIONS = {
   skeptic: {
     id: 'skeptic',
     name: 'Sceptyk',
-    provider: 'groq',
-    model: 'qwen/qwen3.6-27b',
+    provider: 'mistral',
+    model: 'mistral-medium-latest',
     reasoningEffort: 'none',
     description: 'Szuka słabych punktów, ujawnia ukryte założenia, oddziela fakty od hipotez.',
     expectedOutput: 'Lista słabych punktów, ukryte założenia, fakty vs hipotezy.',
@@ -36,8 +36,8 @@ export const AGENT_DEFINITIONS = {
   pragmatist: {
     id: 'pragmatist',
     name: 'Pragmatyk',
-    provider: 'groq',
-    model: 'qwen/qwen3.6-27b',
+    provider: 'mistral',
+    model: 'mistral-small-2603',
     reasoningEffort: 'none',
     description: 'Ocena wykonalności, ogranicza scope, wskazuje potrzebne zasoby.',
     expectedOutput: 'Ocena wykonalności, ograniczony scope, lista zasobów, minimalny eksperyment.',
