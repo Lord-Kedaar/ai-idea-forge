@@ -144,7 +144,10 @@ async function executeAgentWithFallback(agentId, state, env, cancelSignal) {
 
     try {
       const provider = getProvider(providerId, env);
-      const agentModel = providerId === primaryProviderId ? model : null;
+      // Fallback: reuse the agent's primary model when the fallback provider
+      // requires an explicit model (groq/mistral) and none was configured.
+      const agentModel = providerId === primaryProviderId ? model
+        : (model && (providerId === 'groq' || providerId === 'mistral')) ? model : null;
 
       const callParams = {
         messages: [

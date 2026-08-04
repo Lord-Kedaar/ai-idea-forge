@@ -1,18 +1,19 @@
 /**
  * AI Idea Forge — oMLX Provider
- * Provider dla lokalnego oMLX (Ollama-compatible API).
+ * Provider dla lokalnego oMLX (OpenAI-compatible API, /v1).
+ * Uwaga: oMLX nie udostępnia szlaku Ollama (/api/chat) — używa /v1/chat/completions.
  */
 
 export class OmlxProvider {
   constructor(config = {}) {
     this.providerId = 'omlx';
-    this.baseUrl = (config.baseUrl || 'http://localhost:11434').replace(/\/$/, '');
+    this.baseUrl = (config.baseUrl || 'http://localhost:8585').replace(/\/$/, '');
     this.apiKey = config.apiKey || '';
-    this.model = config.model || 'llama3.2';
+    this.model = config.model || 'gemma-4-26B-A4B-it-QAT-MLX-4bit';
   }
 
   /**
-   * Wykonuje chat completion przez oMLX API.
+   * Wykonuje chat completion przez oMLX API (OpenAI-compatible).
    *
    * @param {object} params
    * @param {string[]} params.messages — array of {role, content}
@@ -28,32 +29,25 @@ export class OmlxProvider {
     abortSignal,
     metadata = {},
   } = {}) {
-    const url = `${this.baseUrl}/api/chat`;
+    const url = `${this.baseUrl}/v1/chat/completions`;
 
     const body = {
       model: this.model,
-      messages: messages.map(m => ({
+      messages: messages.map((m) => ({
         role: m.role,
         content: m.content,
       })),
       stream: false,
-      options: {
-        temperature: Math.min(Math.max(temperature, 0), 2),
-        num_predict: Math.min(maxTokens, 4096),
-      },
+      temperature: Math.min(Math.max(temperature, 0), 2),
+      max_tokens: Math.min(maxTokens, 4096),
     };
 
     const headers = {
       'Content-Type': 'application/json',
+      Accept: 'application/json',
     };
     if (this.apiKey) {
       headers['Authorization'] = `Bearer ${this.apiKey}`;
-    }
-
-    const controller = abortSignal ? new AbortController(abortSignal) : null;
-    // If an external abortSignal is passed, wire it to our fetch controller
-    if (abortSignal && !controller) {
-      // abortSignal is already an AbortSignal — use it directly
     }
 
     let response;
@@ -77,18 +71,20 @@ export class OmlxProvider {
     }
 
     const data = await response.json();
+    const choice = data.choices?.[0] || {};
+    const message = choice.message || {};
 
     return {
       providerId: this.providerId,
-      model: this.model,
-      content: data.message?.content || '',
-      reasoning: data.reasoning || null,
+      model: data.model || this.model,
+      content: message.content || '',
+      reasoning: message.reasoning_content || null,
       usage: {
-        promptTokens: data.prompt_eval_count || 0,
-        completionTokens: data.eval_count || 0,
-        totalTokens: (data.prompt_eval_count || 0) + (data.eval_count || 0),
+        promptTokens: data.usage?.prompt_tokens || 0,
+        completionTokens: data.usage?.completion_tokens || 0,
+        totalTokens: data.usage?.total_tokens || 0,
       },
-      finishReason: data.done ? 'stop' : 'length',
+      finishReason: choice.finish_reason || (data.done ? 'stop' : 'length'),
       raw: data,
     };
   }
