@@ -1,35 +1,23 @@
 /**
  * AI Idea Forge — Demo Quota Middleware
  *
- * Enforces a hard limit of N analyses per IP address when DEMO_QUOTA_MODE="limited".
- * Single canonical configuration location: backend/src/config/defaults.js → config.demoQuota
+ * Public demo policy:
+ * - hard limit of N analyses per IP address
+ * - persistent filesystem-backed state
+ * - no automatic reset
+ * - unlock only by manual action after email request
  *
- * Architecture:
- *  - "Source of truth" is ALWAYS the server (filesystem-backed counter).
- *  - Frontend may display the remaining count but NEVER enforces the limit.
- *  - Cookie (forge_demo_acknowledged) stores only "user has seen the notice".
- *    It does NOT enforce the limit — that would be a "plasticine lock".
- *
- * Storage: one JSON file per IP, stored in data/demo_quota/
- *   { "count": N, "updatedAt": "ISO timestamp", "ipHash": "..." }
- *
- * IP resolution (reverse-proxy aware):
- *   - Reads X-Forwarded-For (first IP), X-Real-IP
- *   - Falls back to req.socket.remoteAddress
- *   - Does NOT trust X-Forwarded-For blindly — if all three headers are absent,
- *     the request is considered direct and the socket address is used.
+ * Canonical config lives in backend/src/config/defaults.js → config.demoQuota
  */
 
 import { createHash } from 'crypto';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { mkdir, readFile, writeFile } from 'fs/promises';
+import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { loadEnv } from '../config/env.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = join(__dirname, '..', '..', 'data', 'demo_quota');
-
-// ── Config ──────────────────────────────────────────────────────────────────
+const DATA_DIR_FALLBACK = join(__dirname, '..', '..', 'data', 'demo_quota');
 
 let _cfg = null;
 function cfg() {
@@ -37,178 +25,211 @@ function cfg() {
   return _cfg;
 }
 
-/** DEMO_QUOTA_MODE = "limited" | "unlimited" (from env, with fallback to defaults) */
 export function demoQuotaMode() {
   return cfg().demoQuotaMode || 'limited';
 }
 
 export function demoQuotaConfig() {
+  const env = cfg();
   return {
     mode: demoQuotaMode(),
-    maxAnalyses: cfg().demoQuotaMaxAnalyses || 6,
-    contactEmail: cfg().demoQuotaContactEmail || 'kontakt@radoslaw-pleskot.com',
-    cookieName: cfg().demoQuotaCookieName || 'forge_demo_acknowledged',
+    maxAnalyses: Number(env.demoQuotaMaxAnalyses || 6),
+    contactEmail: env.demoQuotaContactEmail || 'kontakt@radoslaw-pleskot.com',
+    cookieName: env.demoQuotaCookieName || 'forge_demo_acknowledged',
+    storageDir: env.demoQuotaStorageDir || DATA_DIR_FALLBACK,
   };
 }
 
-// ── IP handling ─────────────────────────────────────────────────────────────
-
 /**
- * Returns a pseudo-anonymous IP identifier.
- * - Uses the resolved client IP (X-Forwarded-For first hop, then X-Real-IP,
- *   then socket remoteAddress), hashed via SHA-256 truncated to 32 hex chars.
- * - We deliberately do NOT mix User-Agent into the hash. A demo quota keyed on
- *   IP+UA would reset on UA changes, which defeats "per-IP" enforcement and
- *   would let any visitor bypass the limit by switching browser identity.
- *   The hash already protects raw IP from leaking to disk.
+ * Stable client identifier for public demo quota state.
+ * Hashing keeps the raw IP out of storage files.
  */
 export function getClientIpHash(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  const realIp = req.headers['x-real-ip'];
+  const forwarded = req.headers?.['x-forwarded-for'];
+  const realIp = req.headers?.['x-real-ip'];
   const remoteAddr = req.socket?.remoteAddress || 'unknown';
 
-  let ip;
-  if (forwarded) {
-    ip = forwarded.split(',')[0].trim();
-  } else if (realIp) {
-    ip = realIp.trim();
-  } else {
-    ip = remoteAddr;
-  }
+  const ip =
+    (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : '') ||
+    (typeof realIp === 'string' ? realIp.trim() : '') ||
+    remoteAddr;
 
   return createHash('sha256').update(ip).digest('hex').slice(0, 32);
 }
 
-// ── Storage ──────────────────────────────────────────────────────────────────
+function statePath(storageDir, ipHash) {
+  return join(storageDir, `${ipHash}.json`);
+}
 
-function ensureDataDir() {
+async function ensureDataDir(storageDir) {
+  await mkdir(storageDir, { recursive: true });
+}
+
+async function readState(storageDir, ipHash, maxAnalyses) {
   try {
-    if (!existsSync(DATA_DIR)) {
-      mkdirSync(DATA_DIR, { recursive: true });
+    const raw = await readFile(statePath(storageDir, ipHash), 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      used: Number(parsed.used) || 0,
+      banned: Boolean(parsed.banned),
+      bannedAt: parsed.bannedAt || null,
+      updatedAt: parsed.updatedAt || null,
+      limit: Number(parsed.limit) || maxAnalyses,
+    };
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return {
+        used: 0,
+        banned: false,
+        bannedAt: null,
+        updatedAt: null,
+        limit: maxAnalyses,
+      };
     }
-  } catch {}
-}
-
-function ipFilePath(ipHash) {
-  return join(DATA_DIR, `${ipHash}.json`);
-}
-
-function readCounter(ipHash) {
-  const path = ipFilePath(ipHash);
-  try {
-    if (existsSync(path)) {
-      const raw = readFileSync(path, 'utf-8');
-      const data = JSON.parse(raw);
-      return { count: data.count || 0, updatedAt: data.updatedAt };
-    }
-  } catch {}
-  return { count: 0, updatedAt: null };
-}
-
-function writeCounter(ipHash, count) {
-  ensureDataDir();
-  const path = ipFilePath(ipHash);
-  const data = { count, ipHash, updatedAt: new Date().toISOString() };
-  writeFileSync(path, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-// ── Middleware ─────────────────────────────────────────────────────────────
-
-/**
- * demoQuotaMiddleware — enforces the per-IP analysis limit on POST /api/forge/runs.
- *
- * Attaches to req:
- *   req.demoQuota = { remaining, limit, exceeded, mode }
- */
-export function demoQuotaMiddleware(req, res, next) {
-  // Only enforce on actual run creation attempts
-  if (req.method !== 'POST' || !req.path.includes('/forge/runs')) {
-    return next();
+    throw error;
   }
-
-  const { mode, maxAnalyses } = demoQuotaConfig();
-
-  // unlimited → skip all enforcement
-  if (mode === 'unlimited') {
-    req.demoQuota = { remaining: Infinity, limit: Infinity, exceeded: false, mode };
-    return next();
-  }
-
-  const ipHash = getClientIpHash(req);
-  const { count } = readCounter(ipHash);
-  const remaining = Math.max(0, maxAnalyses - count);
-  const exceeded = count >= maxAnalyses;
-
-  req.demoQuota = { remaining, limit: maxAnalyses, exceeded, mode, ipHash, count };
-
-  if (exceeded) {
-    const retryAfter = 86400;
-    res.set('X-DemoQuota-Limit', String(maxAnalyses));
-    res.set('X-DemoQuota-Remaining', '0');
-    res.set('Retry-After', String(retryAfter));
-    return res.status(429).json({
-      error: 'demo_quota_exceeded',
-      message: 'Demo limit reached. Try again tomorrow or contact for more analyses.',
-      remaining: 0,
-      limit: maxAnalyses,
-      contactEmail: demoQuotaConfig().contactEmail,
-    });
-  }
-
-  // Count consumed AFTER the request passes through successfully
-  res.on('finish', () => {
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      const current = readCounter(ipHash).count;
-      writeCounter(ipHash, current + 1);
-    }
-  });
-
-  next();
 }
 
-// ── API endpoint ─────────────────────────────────────────────────────────────
+async function writeState(storageDir, ipHash, state) {
+  await ensureDataDir(storageDir);
+  await writeFile(
+    statePath(storageDir, ipHash),
+    JSON.stringify(
+      {
+        ...state,
+        updatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+}
 
-/**
- * GET /api/demo-quota
- * Returns current quota status for this IP.
- * Safe to call — does NOT consume a count.
- */
-export function getDemoQuota(req, res) {
-  const { mode, maxAnalyses, contactEmail, cookieName } = demoQuotaConfig();
-
-  if (mode === 'unlimited') {
-    return res.json({
-      mode: 'unlimited',
-      limit: Infinity,
-      remaining: Infinity,
-      exceeded: false,
-      contactEmail,
-    });
-  }
-
-  const ipHash = getClientIpHash(req);
-  const { count } = readCounter(ipHash);
-  const remaining = Math.max(0, maxAnalyses - count);
-  const exceeded = count >= maxAnalyses;
-
-  return res.json({
-    mode: 'limited',
-    limit: maxAnalyses,
+function buildQuotaPayload({ mode, maxAnalyses, contactEmail, used, banned }) {
+  const remaining = mode === 'unlimited' ? Infinity : Math.max(0, maxAnalyses - used);
+  return {
+    mode,
+    limit: mode === 'unlimited' ? Infinity : maxAnalyses,
+    used,
     remaining,
-    exceeded,
-    count,
+    exceeded: banned || (mode !== 'unlimited' && used >= maxAnalyses),
+    banned,
     contactEmail,
-    cookieName,
+  };
+}
+
+export function demoQuotaMiddleware(req, res, next) {
+  void (async () => {
+    if (req.method !== 'POST' || !String(req.path || req.originalUrl || '').includes('/forge/runs')) {
+      return next();
+    }
+
+    const { mode, maxAnalyses, contactEmail, storageDir } = demoQuotaConfig();
+    if (mode === 'unlimited') {
+      req.demoQuota = buildQuotaPayload({ mode, maxAnalyses, contactEmail, used: 0, banned: false });
+      return next();
+    }
+
+    const ipHash = getClientIpHash(req);
+    const state = await readState(storageDir, ipHash, maxAnalyses);
+    const locked = Boolean(state.banned) || state.used >= maxAnalyses;
+
+    if (locked) {
+      const lockedState = {
+        ...state,
+        used: Math.max(state.used, maxAnalyses),
+        banned: true,
+        bannedAt: state.bannedAt || new Date().toISOString(),
+        limit: maxAnalyses,
+      };
+      await writeState(storageDir, ipHash, lockedState);
+
+      req.demoQuota = buildQuotaPayload({
+        mode,
+        maxAnalyses,
+        contactEmail,
+        used: lockedState.used,
+        banned: true,
+      });
+
+      return res.status(429).json({
+        error: 'demo_quota_exceeded',
+        message: `Generation limit reached. This IP is permanently banned. Contact ${contactEmail} to request unlock.`,
+        limit: maxAnalyses,
+        remaining: 0,
+        used: lockedState.used,
+        banned: true,
+        contactEmail,
+        mode,
+      });
+    }
+
+    const nextUsed = state.used + 1;
+    const nextState = {
+      ...state,
+      used: nextUsed,
+      banned: nextUsed >= maxAnalyses,
+      bannedAt: nextUsed >= maxAnalyses ? new Date().toISOString() : state.bannedAt || null,
+      limit: maxAnalyses,
+    };
+    await writeState(storageDir, ipHash, nextState);
+
+    req.demoQuota = buildQuotaPayload({
+      mode,
+      maxAnalyses,
+      contactEmail,
+      used: nextUsed,
+      banned: nextState.banned,
+    });
+
+    return next();
+  })().catch(next);
+}
+
+export function getDemoQuota(req, res, next) {
+  void (async () => {
+    const { mode, maxAnalyses, contactEmail, storageDir } = demoQuotaConfig();
+
+    if (mode === 'unlimited') {
+      return res.json({
+        mode,
+        limit: Infinity,
+        used: 0,
+        remaining: Infinity,
+        exceeded: false,
+        banned: false,
+        contactEmail,
+        storageDir,
+      });
+    }
+
+    const ipHash = getClientIpHash(req);
+    const state = await readState(storageDir, ipHash, maxAnalyses);
+    const banned = Boolean(state.banned) || state.used >= maxAnalyses;
+
+    return res.json({
+      mode,
+      limit: maxAnalyses,
+      used: Math.min(state.used, maxAnalyses),
+      remaining: banned ? 0 : Math.max(0, maxAnalyses - state.used),
+      exceeded: banned,
+      banned,
+      bannedAt: state.bannedAt,
+      contactEmail,
+      storageDir,
+      unlock: banned ? { via: 'email', contactEmail } : null,
+    });
+  })().catch((error) => {
+    if (next) return next(error);
+    return res.status(500).json({ error: 'demo_quota_read_failed', message: error.message });
   });
 }
 
-/**
- * DELETE /api/demo-quota
- * Admin reset — clears the counter for the current IP.
- */
 export function resetDemoQuota(req, res) {
-  const ipHash = getClientIpHash(req);
-  writeCounter(ipHash, 0);
-  const { count } = readCounter(ipHash);
-  res.json({ ok: true, count, message: 'Counter reset.' });
+  return res.status(410).json({
+    error: 'demo_quota_reset_disabled',
+    message: 'Demo quota reset is disabled. Unlocks require manual email review.',
+    contactEmail: demoQuotaConfig().contactEmail,
+  });
 }
